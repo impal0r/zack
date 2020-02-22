@@ -1,0 +1,40 @@
+Z1.0 prog
+#INCLUDE define.src
+
+bintodec: ;function(number:uint16(A), endpointer:char*(C)) -> startpointer:char*(A), endpointer:char*(C)
+;returns a string between startpointer and endpointer inclusive. endpointer and 4 bytes before it must be free
+XOR D, D, D
+CMP A, D
+JZI iszero
+PUSH C ;save orignal end address as we will be decrementing C
+INC C ;we decrement after each char, but if only 1 char we want startpointer and endpointer to be equal
+PUSH E
+LDI E, '0'
+LDI B, 10
+divloop: ;D should be 0 here as upper half of divc comes from D
+DIVC A, A, B ;D := A%10; A := A//10
+ADD D, D, E ;D := str(D)
+DEC C
+STO D, C
+XOR D, D, D
+CMP A, D
+JNZI divloop
+POP E
+MOV A, C
+POP C
+RET
+iszero:
+LDI A, '0'
+STO A, C
+MOV A, C
+RET
+
+ENTRY:
+LDI A, 0xffff
+LDI C, 0xf100
+CALL bintodec ;-> start(A), end(C)
+SUB C, C, A
+INC C ;length = end-start+1
+CALL prints
+end: HLT
+JMPI end

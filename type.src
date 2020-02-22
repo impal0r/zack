@@ -1,0 +1,35 @@
+Z1.0 prog
+;Note to myself: We really need arithmetic operations with immediates!
+
+#INCLUDE define.src
+
+showc: ;function(char(A))
+LDI B, 0x20
+;if a is non-printable or newline, display a space
+CMP A, B
+JGI showcCont1
+MOV A, B ;A = 0x20
+showcCont1:
+SUB A, A, B ;take away 20h as thats where our table starts
+;shift left by 4 because each table entry is 16 words
+LDI B, 4
+SHL A, A, B
+;add base to index now in A
+LDI B, charTable
+ADD A, A, B
+;show character on screen
+CALL showimg
+RET
+
+ENTRY:
+CALL clrtty
+CALL clrscr
+;show getc() on screen forever
+getcloop:
+CALL getc   ;result in A
+CALL printc ;argument in A (which it preserves)
+CALL showc ;argument in A
+JMPI getcloop
+
+charTable: ;starting from ASCII 20h
+#INCLUDE chars.mem

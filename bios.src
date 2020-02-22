@@ -1,0 +1,116 @@
+Z1.0 bios
+; Note: A, B, C, D are callee saved, while E, F, G are caller saved (ie not changed)
+; Note also: in the PUSH instruction first we decrement SP and then write, so SP points to top of stack (don't get confused!)
+
+;set up stack pointer
+LDI SP, 0xE000
+STI A, 0x0112 ;clear tty
+;print("Hi, I'm Zack!\n")
+LDI A, 'H'
+STI A, 0x0111
+LDI A, 'i'
+STI A, 0x0111
+LDI A, ','
+STI A, 0x0111
+LDI A, ' '
+STI A, 0x0111
+LDI A, 'I'
+STI A, 0x0111
+LDI A, ''' ;'
+STI A, 0x0111
+LDI A, 'm'
+STI A, 0x0111
+LDI A, ' '
+STI A, 0x0111
+LDI A, 'Z'
+STI A, 0x0111
+LDI A, 'a'
+STI A, 0x0111
+LDI A, 'c'
+STI A, 0x0111
+LDI A, 'k'
+STI A, 0x0111
+LDI A, '!'
+STI A, 0x0111
+LDI A, '\n'
+STI A, 0x0111
+;show smiley face
+STI A, 0x110 ;clear screen
+LDI A, 0x0060
+STI A, 0x101
+STI A, 0x10e
+LDI A, 0x1878
+STI A, 0x102
+STI A, 0x10d
+LDI A, 0x3c7c
+STI A, 0x103
+STI A, 0x104
+STI A, 0x10b
+STI A, 0x10c
+LDI A, 0x187e
+STI A, 0x105
+STI A, 0x10a
+LDI A, 0x007e
+STI A, 0x106
+STI A, 0x107
+STI A, 0x108
+STI A, 0x109
+;run program if there
+LDAI A, 0x0200
+XOR B, B, B
+CMP A, B
+JZI halt
+JMP A
+
+printc: ;function(char(A))
+STI A, 0x0111 ;to TTY
+RET
+
+prints: ;function(*str(A), len(C))
+ADD B, A, C
+printsLoop1:
+LDA D, A
+STI D, 0x0111 ;to TTY
+INC A
+CMP A, B
+JNZI printsLoop1
+RET
+
+getc: ;function(), returns character in A
+XOR B, B, B
+getcLoop1:
+LDAI A, 0x0114 ;keyboard available
+CMP A, B
+JZI getcLoop1
+LDAI A, 0x0113 ;keyboard data
+RET
+
+halt: ;function()
+HLT
+JMPI halt
+
+clrtty: ;function()
+STI A, 0x0112 ;TTY clear pin (data ignored, just writing to it will clear)
+RET
+
+clrscr: ;function()
+STI A, 0x0110 ;LED matrix clear pin (data ignored, just writing will clear)
+RET
+
+showcol: ;function(colnum(C), value(D))
+LDI B, 0xf ;mask to keep only bottom 4 bits
+AND C, C, B
+LDI B, 0x0100 ;0x0100 through 0x010f are the columns of the LED matrix
+ADD C, C, B
+STO D, C
+RET
+
+showimg: ;function(*cols(A))
+#REPEAT 15 i
+LDA D, A
+STI D, 0x100+i
+INC A
+#ENDM
+LDA D, A
+STI D, 0x10f
+RET

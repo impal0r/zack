@@ -1,0 +1,65 @@
+Instructions always 1 word (2 bytes), sometimes followed by an immediate word.
+First word:
++---------------------------------------------------------------+
+|15 |14 |13 |12 |11 |10 | 9 | 8 | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+|---------------------------|-----------|-----------|-----------|
+|        instruction        |    dest   |   src 1   |   src 2   |
+|       -> decode ROM       |  (Z bus)  |  (X bus)  |  (Y bus)  |
++---------------------------------------------------------------+
+
+Instruction bits (hex): Meaning
+-------------------------------
+00: NOP
+01: HLT
+08: LDI dest, imm
+09: LDAI dest, address[imm]
+0A: STI src2, address[imm]
+11: LDA dest, address[src2]
+12: STO src2, address[src1]
+13: PUSH src2
+14: MOV dest, src1
+
+18: ADD
+19: SUB
+1A: AND
+1B: OR
+1C: NAND
+1D: NOR
+1E: XOR
+1F: CMP src1, src2 (dest not affected, but flags set)
+20: INC (src1+1 -> dest)
+21: DEC (src1-1 -> dest)
+22: NEG (-src2 -> dest; 2's complement)
+23: INV (~src2 -> dest; bitwise NOT)
+
+28: REM (result -> D; upper half <- D) (the modulus operator)
+29: MULC (cin <- D; upper half -> D)
+2A: DIVD (upper half <- D)
+2B: DIVC (quotient->dest; rem->D; upper half of dividend <- D)
+2C: MUL (discard upper half)
+2D: DIV (no upper half)
+30: SHL
+31: SHR
+32: SAR
+33: ROL
+34: ROR
+
+60: JMPI imm
+61: JZI imm
+62: JNZI imm
+63: JGI imm  \ signed
+64: JLI imm  /
+65: JAI imm  \ unsigned
+66: JBI imm  /
+68: JMP src2
+69: JZ src2
+6A: JNZ src2
+6B: JG src2  \ signed
+6C: JL src2  /
+6D: JA src2  \ unsigned
+6E: JB src2  /
+
+78: CALL imm
+79: RET
+7A: CALLR src2 (function address from src2, a register)
+7B: POP dest

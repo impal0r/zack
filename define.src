@@ -1,0 +1,9 @@
+Z1.0 raw
+#DEFINE printc 107 ;0x6b
+#DEFINE prints 110 ;0x6e
+#DEFINE getc 119   ;0x77
+#DEFINE halt 128   ;0x80
+#DEFINE clrtty 131 ;0x83
+#DEFINE clrscr 134 ;0x86
+#DEFINE showcol 137;0x89
+#DEFINE showimg 145;0x91

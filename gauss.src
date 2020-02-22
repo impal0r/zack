@@ -1,0 +1,18 @@
+Z1.0 bios
+LDAI A, num
+MOV B, A
+LDI C, 0
+loop:
+CMP B, C
+JZI end
+DEC B
+ADD A, A, B
+JMPI loop
+end:
+STI A, result
+hlt:
+JMPI hlt
+
+num:
+CONST 5
+result:

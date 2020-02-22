@@ -1,0 +1,543 @@
+Z1.0 prog
+;E - x (x and y point to where we are in the screen)
+;F - 1 << y (store like this for efficiency)
+;G - grid_ptr (start of current display grid)
+;NB: x goes left-to-right, y goes bottom-to-top
+#INCLUDE define.src
+#DEFINE SIZEX 2 ;size of field in quadrants
+#DEFINE SIZEY 2
+#DEFINE STARTX 1 ;starting position (always start in NW quadrant)
+#DEFINE STARTY 0x4000 ;1 << 14
+;store variables in f000-ffff section
+#DEFINE sqx 0xf000
+#DEFINE sqy 0xf001
+
+showplayer: ;function()
+;show player in x-th column
+LDI A, 0x0100
+ADD A, A, E
+LDA D, A ;D = SCREEN[x]
+OR D, D, F ;D = SCREEN[x] | 1<<y
+STO D, A
+RET
+
+reset: ;function()
+CALL clrtty
+;reset variables
+LDI E, STARTX ;x = STARTX
+LDI F, STARTY ;y = STARTY
+XOR G, G, G
+STI G, sqx
+STI G, sqy ;sq_y = sq_x = 0
+LDI G, FIELD ;grid_ptr -> FIELD
+;show starting area and player
+LDI A, FIELD
+CALL showimg
+CALL showplayer
+;show message
+LDI A, welcomeMsg
+LDAI C, welcomeMsgLen
+CALL prints
+RET
+
+win: ;function()
+CALL clrtty
+LDI A, winMsg
+LDAI C, winMsgLen
+CALL prints
+LDI A, WINIMG
+CALL showimg
+RET
+
+movnorth: ;function() -> !won(A) (if A==0 then we have won)
+LDI A, 0x8000
+CMP F, A ;1<<y==0x8000 -> y==15
+JZI movnorthYeq15
+;if y < 15
+;check if there is a wall
+ADD A, G, E
+LDA D, A ;D = [grid_ptr+x]
+LDI B, 1
+MOV A, F ;save y
+SHL F, F, B ;y += 1
+AND C, D, F ;C = [grid_ptr+x] & 1<<(y+1)
+DEC B ;B = 0
+CMP C, B
+JNZI movnorthBlocked ;C != 0 -> wall there
+;if there is no wall, show player at new location
+OR D, D, F ;D = [grid_ptr+x] | 1<<(y+1)
+LDI A, 0x0100
+ADD A, A, E
+STO D, A
+RET
+movnorthBlocked:
+;if there is a wall do nothing
+MOV F, A ;we incremented Y - revert this
+RET
+movnorthYeq15:
+;if y == 15
+XOR A, A, A ;A = 0
+LDAI B, sqy
+CMP B, A
+JZI movnorthSQYeq0
+;if sq_y > 0 (y==15)
+LDI F, 1 ;y = 0 -> 1<<y = 1
+DEC B
+STI B, sqy ;sq_y -= 1
+LDI A, 46
+SUB G, G, A ;grid_ptr -= 46 (ie one row up)
+MOV A, G
+CALL showimg
+CALL showplayer
+RET
+movnorthSQYeq0:
+;if sq_y == 0 (y==15)
+CALL win
+XOR A, A, A ;A = 0: signal we have won
+RET
+
+movwest: ;function() -> !won(A)
+XOR A, A, A ;A = 0
+CMP E, A
+JZI movwestXeq0
+;if x > 0
+;check if there is a wall
+ADD A, G, E
+MOV C, A ;C = grid_ptr+x
+DEC A    ;A = grid_ptr+x-1
+LDA D, A ;D = [grid_ptr+x-1]
+MOV A, D ;A = [grid_ptr+x-1]
+AND D, D, F ;D = [grid_ptr+x-1] & 1<<y
+XOR B, B, B ;B = 0
+CMP D, B
+JNZI return ;D != 0 -> wall there -> do nothing
+;if there is no wall, hide player at old location...
+LDA B, C ;B = [grid_ptr+x]
+LDI C, 0x0100
+ADD C, C, E ;C = SCREEN+x
+STO B, C ;restore previous column
+;... and show player at new location
+DEC E
+OR A, A, F ;A = [grid_ptr+x-1] | 1<<y
+DEC C
+STO A, C ;SCREEN[x-1] = [grid_ptr+x-1] | 1<<y
+RET
+movwestXeq0:
+;if x == 0
+LDAI B, sqx
+CMP B, E ;E is 0
+JZI movwestSQXeq0
+;if sq_x > 0 (x==0)
+LDI E, 15 ;x = 15
+DEC B
+STI B, sqx ;sq_x -= 1
+SUB G, G, E ;grid_ptr -= 15 (ie one square left)
+MOV A, G
+CALL showimg
+CALL showplayer
+RET
+movwestSQXeq0:
+;if sq_x == 0 (x==0)
+CALL win
+XOR A, A, A ;A = 0: show we have won
+return: RET
+
+movsouth: ;function() -> !won(A) (if A==0 then we have won)
+LDI B, 1
+CMP F, B ;1<<y==1 -> y==0
+JZI movsouthYeq0
+;if y > 0
+;check if there is a wall
+ADD A, G, E
+LDA D, A ;D = [grid_ptr+x]
+MOV A, F ;save y
+SHR F, F, B ;y -= 1
+AND C, D, F ;C = [grid_ptr+x] & 1<<(y-1)
+XOR B, B, B ;B = 0
+CMP C, B
+JNZI movsouthBlocked ;C != 0 -> wall there
+;if there is no wall, show player at new location
+OR D, D, F ;D = [grid_ptr+x] | 1<<(y-1)
+LDI A, 0x0100
+ADD A, A, E
+STO D, A
+RET
+movsouthBlocked:
+;if there is a wall do nothing
+MOV F, A ;we decremented Y - revert this
+RET
+movsouthYeq0:
+;if y == 0
+LDI A, SIZEY
+LDAI B, sqy
+CMP B, A
+JZI movsouthSQYisMAX
+;if sq_y < SIZEY (y==0)
+LDI F, 0x8000 ;y = 15 -> 1<<y = 0x8000
+INC B
+STI B, sqy ;sq_y += 1
+LDI A, 46
+ADD G, G, A ;grid_ptr += 46 (ie one row down)
+MOV A, G
+CALL showimg
+CALL showplayer
+RET
+movsouthSQYisMAX:
+;if sq_y == SIZEY (y==0)
+CALL win
+XOR A, A, A ;A = 0: signal we have won
+RET
+
+moveast: ;function() -> !won(A)
+LDI A, 15
+CMP E, A
+JZI moveastXeq15
+;if x < 15
+;check if there is a wall
+ADD A, G, E
+MOV C, A ;C = grid_ptr+x
+INC A    ;A = grid_ptr+x+1
+LDA D, A ;D = [grid_ptr+x+1]
+MOV A, D ;save D
+AND D, D, F ;C = [grid_ptr+x+1] & 1<<y
+XOR B, B, B ;B = 0
+CMP D, B
+JNZI return ;C != 0 -> wall there -> do nothing
+;if there is no wall, hide player at old location...
+LDA B, C ;B = [grid_ptr+x]
+LDI C, 0x0100
+ADD C, C, E ;C = SCREEN+x
+STO B, C ;restore previous column
+;... and show player at new location
+INC E
+OR A, A, F ;D = [grid_ptr+x+1] | 1<<y
+INC C
+STO A, C ;SCREEN[x+1] = [grid_ptr+x+1] | 1<<y
+RET
+moveastXeq15:
+;if x == 15
+LDI A, SIZEX
+LDAI B, sqx
+CMP B, A
+JZI moveastSQXisMAX
+;if sq_x < SIZEX (x==15)
+INC B
+STI B, sqx ;sq_x += 1
+ADD G, G, E ;grid_ptr += 15 (ie one square right)
+XOR E, E, E ;x = 0
+MOV A, G
+CALL showimg
+CALL showplayer
+RET
+moveastSQXisMAX:
+;if sq_x == SIZEX (x==15)
+CALL win
+XOR A, A, A ;A = 0: show we have won
+RET
+
+ENTRY:
+CALL clrtty
+;set variables
+LDI E, STARTX ;x = STARTX
+LDI F, STARTY ;y = STARTY
+XOR G, G, G
+STI G, sqx
+STI G, sqy ;sq_y = sq_x = 0
+LDI G, FIELD ;grid_ptr -> FIELD
+;show starting area and player
+LDI A, FIELD
+CALL showimg
+CALL showplayer
+;show message
+LDI A, welcomeMsg
+LDAI C, welcomeMsgLen
+CALL prints
+;respond to user input forever
+gameloop:
+CALL getc ;result in A
+LDI B, 'w'
+CMP A, B
+JZI w
+LDI B, 'a'
+CMP A, B
+JZI a
+LDI B, 's'
+CMP A, B
+JZI s
+LDI B, 'd'
+CMP A, B
+JZI d
+LDI B, 'q'
+CMP A, B
+JZI q
+JMPI gameloop
+w:
+CALL movnorth
+XOR B, B, B ;B = 0
+CMP A, B
+JZI won
+JMPI gameloop
+a:
+CALL movwest
+XOR B, B, B ;B = 0
+CMP A, B
+JZI won
+JMPI gameloop
+s:
+CALL movsouth
+XOR B, B, B ;B = 0
+CMP A, B
+JZI won
+JMPI gameloop
+d:
+CALL moveast
+XOR B, B, B ;B = 0
+CMP A, B
+JZI won
+JMPI gameloop
+q:
+CALL clrscr
+CALL clrtty
+HLT
+JMPI ENTRY
+won:
+CALL getc ;wait for input
+LDI B, 'q'
+CMP A, B
+JZI q
+CALL reset
+JMPI gameloop
+
+FIELD:
+#DEFINE CC CONST
+#DEFINE wal CC 0xffff
+wal
+CC 0x8001
+CC 0x8001
+CC 0x9ff9
+CC 0x9008
+CC 0x9008
+CC 0x924f
+CC 0x8240
+CC 0x8240
+CC 0xfe7f
+CC 0x8040
+CC 0x8040
+CC 0x9fff
+CC 0x9040
+CC 0x9040
+CC 0x9279
+CC 0x9201
+CC 0x9201
+CC 0x93ff
+CC 0x8200
+CC 0x8200
+CC 0x9ef9
+CC 0x9209
+CC 0x9209
+CC 0x93c9
+CC 0x8009
+CC 0x8009
+CC 0x9ff9
+CC 0x8201
+CC 0x8201
+CC 0xf3cf
+CC 0x9240
+CC 0x9240
+CC 0x927f
+CC 0x9201
+CC 0x9201
+CC 0x93f9
+CC 0x9008
+CC 0x9008
+CC 0x9e49
+CC 0x8248
+CC 0x8248
+CC 0x924f
+CC 0x9040
+CC 0x9040
+wal
+wal
+CC 0x8040
+CC 0x8040
+CC 0x9e79
+CC 0x1048
+CC 0x1048
+CC 0xf24f
+CC 0x1208
+CC 0x1208
+CC 0x93c9
+CC 0x1249
+CC 0x1249
+CC 0xf249
+CC 0x1049
+CC 0x1049
+CC 0x9e79
+CC 0x8201
+CC 0x8201
+CC 0xf3ff
+CC 0x1208
+CC 0x1208
+#REPLN 4 CC 0x9249
+CC 0x9048
+CC 0x9048
+CC 0x9fcf
+CC 0x8208
+CC 0x8208
+CC 0xf249
+CC 0x1248
+CC 0x1248
+CC 0x9e79
+CC 0x8209
+CC 0x8209
+CC 0xffc9
+CC 0x1049
+CC 0x1049
+CC 0xf249
+CC 0x0249
+CC 0x0249
+CC 0xf24f
+CC 0x0240
+CC 0x0240
+wal
+wal
+CC 9
+CC 9
+CC 0xffc9
+CC 0x0209
+CC 0x0209
+CC 0xf279
+CC 0x0241
+CC 0x0241
+CC 0xfe49
+CC 0x8209
+CC 0x8209
+CC 0x9ff9
+CC 0x9009
+CC 0x9009
+CC 0x93c9
+CC 0x8249
+CC 0x8249
+CC 0xf249
+CC 0x1041
+CC 0x1041
+CC 0x9fff
+CC 0x8001
+CC 0x8001
+CC 0xfe79
+CC 0x0241
+CC 0x0241
+CC 0xf3cf
+CC 0x0049
+CC 0x0049
+CC 0xffc9
+CC 0x0049
+CC 0x0049
+CC 0xf3cf
+CC 0x8249
+CC 0x8249
+CC 0x9e49
+CC 0x9049
+CC 0x9049
+CC 0x9249
+CC 0x9209
+CC 0x9209
+CC 0x93f9
+CC 0x1001
+CC 0x1001
+CC 0xfff9
+
+WINIMG:
+CC 0x0000
+CC 0x0060
+CC 0x1878
+CC 0x3c7c
+CC 0x3c7c
+CC 0x187e
+CC 0x007e
+CC 0x007e
+CC 0x007e
+CC 0x007e
+CC 0x187e
+CC 0x3c7c
+CC 0x3c7c
+CC 0x1878
+CC 0x0060
+CC 0x0000
+
+welcomeMsgLen: CC 33
+welcomeMsg:
+CC 'W'
+CC 'A'
+CC 'S'
+CC 'D'
+CC ' '
+CC 't'
+CC 'o'
+CC ' '
+CC 'm'
+CC 'o'
+CC 'v'
+CC 'e'
+CC '\n'
+CC 'Q'
+CC ' '
+CC 't'
+CC 'o'
+CC ' '
+CC 'q'
+CC 'u'
+CC 'i'
+CC 't'
+CC '\n'
+CC 'G'
+CC 'o'
+CC 'o'
+CC 'd'
+CC ' '
+CC 'l'
+CC 'u'
+CC 'c'
+CC 'k'
+CC '!'
+winMsgLen: CC 39
+winMsg:
+CC 'W'
+CC 'e'
+CC 'l'
+CC 'l'
+CC ' '
+CC 'D'
+CC 'o'
+CC 'n'
+CC 'e'
+CC '!'
+CC '\n'
+CC 'P'
+CC 'r'
+CC 'e'
+CC 's'
+CC 's'
+CC ' '
+CC 'a'
+CC 'n'
+CC 'y'
+CC ' '
+CC 'k'
+CC 'e'
+CC 'y'
+CC ' '
+CC 't'
+CC 'o'
+CC ' '
+CC 'r'
+CC 'e'
+CC 's'
+CC 't'
+CC 'a'
+CC 'r'
+CC 't'
+CC ' '
+CC '.'
+CC '.'
+CC '.'

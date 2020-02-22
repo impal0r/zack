@@ -1,0 +1,65 @@
+Use python3 assemble.py [program name] [options] to assemble a program into a .mem or .rom file.
+This file can then be loaded into the RAM or ROM of the computer using Logisim's GUI interface.
+
+FILE FORMAT
+***********
+ - The first line of an assembly program file must be "Z<ver> <descr>\n",
+    where <ver> is the Zack version (currently 1.0)
+    and <descr> is either "bios" (assemble raw to go in ROM), "raw" (output raw shellcode),
+    or "prog" (assemble as a program to go in RAM).
+   (Command line options '-bios', '-raw', '-prog' override this)
+ - A semicolon ; starts a single line comment. Multiline comments are not supported.
+
+
+ASSEMBLY INSTRUCTIONS
+*********************
+ - Format is based on Intel format, see instr.txt for specific instruction details.
+ - Most arithmetic instructions take 3 arguments, 2 source registers and 1 destination register.
+ - Registers are known as A, B, C, D, E, F, G, SP.
+ - Also, `CONST [immediate]` assembles to just the immediate value in memory, so it can be used for
+   static data.
+
+EXAMPLES:
+  ADD A, B, C   ;add B and C and store the result in A
+  LDA D, A      ;load the value at the memory address pointed to by A into the register D
+  LDAI D, 0x100 ;load value at memory address 0x100 into register D
+  LDI D, 'A'    ;load the character A (ie 65) into D
+(spaces between arguments are required)
+
+IMMEDIATE VALUES
+****************
+ - Can be a normal decimal integer, or in hexadecimal (prefixed 0x- or suffixed -h), or similarly for (o)ctal,
+   (b)inary, and (d)ecimal as well.
+ - You can also use 'base+offset' notation (note this only works with a single + sign and no whitespace) - this
+   is particularly useful with the REPEAT macro.
+ - An immediate can also be a single ASCII character, surrounded by 'single quotes', including space and escape
+   sequences such as '\n' and '\t'
+
+EXAMLES:
+  0
+  0b11011
+  80h
+  'q'
+  ' '
+  '\n'
+  0xf000+'q'
+
+LABELS
+******
+ - Found at the start of a line, followed immediately by a colon.
+ - Labels must be alphanumeric and cannot start with a digit.
+ - They can be used in place of immediates in a instruction (ie. it evaluates to the address).
+ - If assembling a program (not bios), an 'ENTRY' label is required, pointing at the entry point of the program.  - This will be jumped to after startup.
+
+PREPROCESSOR DIRECTIVES
+***********************
+#DEFINE name replace - Replace name with replace after this statement
+#INCLUDE file        - Effectively inserts the contents of file where this statement is.
+                       Only .src and .mem files are supported, and .mem files included should be assembled
+		       raw.
+#REPEAT number ctr   - Repeat the following lines (until an #ENDM directive is reached) number times.
+                       Optional argument ctr is a variable name which will increment from 0 to number-1
+                       over each repeat, and can be used as a label inside the block (like a for loop).
+#ENDM                - Signifies the end of a macro block
+#REPLN number line   - Repeat a single line number times. No #ENDM directive needed.
+

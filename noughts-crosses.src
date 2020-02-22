@@ -1,0 +1,350 @@
+Z1.0 prog
+#INCLUDE define.src
+#DEFINE CC CONST
+;game data stored on bitmaps (squares numbered from top right (0) across then down)
+;D: move (0: noughts, non-zero: crosses)
+;E: noughts (player A)
+;F: crosses (player B)
+;G: unfilled (starts 0x01ff then bits unset)
+
+reset: ;doesn't touch B
+;reset data regs
+XOR E, E, E
+MOV F, E
+LDI G, 0x01ff
+STI A, 0x112 ;tty clr pin
+STI A, 0x110 ;screen clr pin
+;draw staring grid
+LDI A, 0x0420
+STI A, 0x101
+STI A, 0x102
+STI A, 0x103
+STI A, 0x104
+STI A, 0x106
+STI A, 0x107
+STI A, 0x108
+STI A, 0x109
+STI A, 0x10b
+STI A, 0x10c
+STI A, 0x10d
+STI A, 0x10e
+LDI A, 0x7ffe
+STI A, 0x105
+STI A, 0x10a
+;print welcome msg
+STI A, 0x112 ;clear tty pin (data doesnt matter)
+#REPEAT 44 i
+LDAI A, welcomemsg+i
+STI A, 0x111 ;to tty
+#ENDM
+RET
+
+ENTRY: ;B is 0 on entry
+;setup map from chars to moves at f100
+;contains constants with (10-[bit pos of sq])
+LDI A, 9
+STI A, 0xf100+'q'
+DEC A
+STI A, 0xf100+'w'
+DEC A
+STI A, 0xf100+'e'
+DEC A
+STI A, 0xf100+'a'
+DEC A
+STI A, 0xf100+'s'
+DEC A
+STI A, 0xf100+'d'
+DEC A
+STI A, 0xf100+'z'
+DEC A
+STI A, 0xf100+'x'
+DEC A ;now 1
+STI A, 0xf100+'c'
+restart: CALL reset
+gameloop:
+CALL getc ;char result in A
+LDI C, 8 ;backspace
+CMP A, C
+JZI quit
+LDI C, 0xf100
+ADD A, A, C
+LDA A, A
+LDI C, 0b1111110111111111
+SAR C, C, A  ; ->>>>>>>>> depending on value from table (A)
+NOR B, C, G ;if 0 in same place in 'unfilled', C will be non-zero
+JNZI gameloop
+;C contains the square pressed eg. 1111 1111 1111 1011 for top right
+;B is 0
+;now make move
+AND G, G, C ;zero the bit to show that we have filled this square
+INV C ;C is now eg. 0000 0000 0000 0100
+CMP D, B
+JNZI crosses
+;noughts:
+OR E, E, C
+LDI C, highnought
+JMPI cont1
+crosses:
+OR F, F, C
+LDI C, highcross
+cont1:
+;get data to draw
+INC B ;B now 1
+SHL A, A, B ;double A: 1-9 -> 2-18
+LDI B, decdtable+-2 ;-2 because A from 2-18 not 0-16
+ADD B, B, A
+LDA A, B ;add to highnought/highcross to get correct height
+ADD C, C, A
+INC B ;next value in table
+LDA B, B ;col address to start
+;show on screen
+PUSH D
+LDA A, C
+LDA D, B
+OR A, A, D
+STO A, B
+INC C
+INC B
+LDA A, C
+LDA D, B
+OR A, A, D
+STO A, B
+INC C
+INC B
+LDA A, C
+LDA D, B
+OR A, A, D
+STO A, B
+;check for draw
+XOR D, D, D
+CMP G, D
+JZI isdraw
+;check for win
+POP A ;move now in A
+CMP A, D ;D is zero
+JNZI checkcrosswin ;if D!=0 (was crosses move)
+#REPEAT 8 i
+LDAI C, winmasks+i
+AND B, E, C
+CMP B, C
+JZI isnoughtwin
+#ENDM
+JMPI cont2
+checkcrosswin:
+#REPEAT 8 i
+LDAI C, winmasks+i
+AND B, F, C
+CMP B, C
+JZI iscrosswin
+#ENDM
+cont2:
+MOV D, A ;restore move to D
+INV D ;other players move
+JMPI gameloop
+
+isdraw:
+INC SP ;we pushed D and didn't POP
+;show draw msg
+STI A, 0x112 ;clear tty
+LDI A, 'D'
+STI A, 0x111
+LDI A, 'r'
+STI A, 0x111
+LDI A, 'a'
+STI A, 0x111
+LDI A, 'w'
+STI A, 0x111
+JMPI common
+isnoughtwin:
+;print win message
+STI A, 0x112 ;clear tty
+#REPEAT 17 i
+LDAI A, noughtsWinMsg+i
+STI A, 0x111
+#ENDM
+JMPI common
+iscrosswin:
+;print win msg
+STI A, 0x112 ;clear tty
+;print win msg
+#REPEAT 17 i
+LDAI A, crossesWinMsg+i
+STI A, 0x111
+#ENDM
+common:
+;print common message (follows on from each draw/win msg)
+#REPEAT 29 i
+LDAI A, commonEndMsg+i
+STI A, 0x111
+#ENDM
+CALL getc ;wait for input
+JMPI restart
+quit:
+CALL clrtty
+CALL clrscr
+HLT
+JMPI restart
+
+decdtable:
+CC 6
+CC 0x010c
+CC 6
+CC 0x0107
+CC 6
+CC 0x0102
+CC 3
+CC 0x010c
+CC 3
+CC 0x0107
+CC 3
+CC 0x0102
+CC 0
+CC 0x010c
+CC 0
+CC 0x0107
+CC 0
+CC 0x0102
+highnought:
+CC 0x7000
+CC 0x5000
+CC 0x7000
+midnought:
+CC 0x0380
+CC 0x0280
+CC 0x0380
+lownought:
+CC 0x001c
+CC 0x0014
+CC 0x001c
+highcross:
+CC 0x5000
+CC 0x2000
+CC 0x5000
+midcross:
+CC 0x0280
+CC 0x0100
+CC 0x0280
+lowcross:
+CC 0x0014
+CC 0x0008
+CC 0x0014
+winmasks: ;8 possible combinations
+CC 0b111000000
+CC 0b000111000
+CC 0b000000111 ;rows
+CC 0b100100100
+CC 0b010010010
+CC 0b001001001 ;columns
+CC 0b100010001
+CC 0b001010100 ;2 diagonals
+welcomemsg: ;length=44
+CC 'U'
+CC 's'
+CC 'e'
+CC ' '
+CC 'Q'
+CC 'W'
+CC 'E'
+CC 'A'
+CC 'S'
+CC 'D'
+CC 'Z'
+CC 'X'
+CC 'C'
+CC ' '
+CC 't'
+CC 'o'
+CC ' '
+CC 'c'
+CC 'h'
+CC 'o'
+CC 'o'
+CC 's'
+CC 'e'
+CC ' '
+CC 's'
+CC 'q'
+CC 'u'
+CC 'a'
+CC 'r'
+CC 'e'
+CC '\n'
+CC 'b'
+CC 'k'
+CC 's'
+CC 'p'
+CC 'c'
+CC ' '
+CC 't'
+CC 'o'
+CC ' '
+CC 'q'
+CC 'u'
+CC 'i'
+CC 't'
+noughtsWinMsg: ;length=17
+CC 'W'
+CC 'e'
+CC 'l'
+CC 'l'
+CC ' '
+CC 'd'
+CC 'o'
+CC 'n'
+CC 'e'
+CC ' '
+CC 'N'
+CC 'o'
+CC 'u'
+CC 'g'
+CC 'h'
+CC 't'
+CC 's'
+crossesWinMsg: ;length=17
+CC 'W'
+CC 'e'
+CC 'l'
+CC 'l'
+CC ' '
+CC 'd'
+CC 'o'
+CC 'n'
+CC 'e'
+CC ' '
+CC 'C'
+CC 'r'
+CC 'o'
+CC 's'
+CC 's'
+CC 'e'
+CC 's'
+commonEndMsg: ;length=29
+CC '!'
+CC '\n'
+CC 'P'
+CC 'r'
+CC 'e'
+CC 's'
+CC 's'
+CC ' '
+CC 'a'
+CC 'n'
+CC 'y'
+CC ' '
+CC 'k'
+CC 'e'
+CC 'y'
+CC ' '
+CC 't'
+CC 'o'
+CC ' '
+CC 'p'
+CC 'l'
+CC 'a'
+CC 'y'
+CC ' '
+CC 'a'
+CC 'g'
+CC 'a'
+CC 'i'
+CC 'n'

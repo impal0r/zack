@@ -1,0 +1,24 @@
+Z1.0 prog
+ENTRY:
+CALL 43 ;clrtty
+LDAI C, length
+LDI A, text
+CALL 23 ;prints
+HLT
+
+length: CONST 14
+text:
+CONST 'H'
+CONST 'e'
+CONST 'l'
+CONST 'l'
+CONST 'o'
+CONST ','
+CONST ' '
+CONST 'w'
+CONST 'o'
+CONST 'r'
+CONST 'l'
+CONST 'd'
+CONST '!'
+CONST '\n'
