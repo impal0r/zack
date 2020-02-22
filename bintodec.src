@@ -3,6 +3,7 @@ Z1.0 prog
 
 bintodec: ;function(number:uint16(A), endpointer:char*(C)) -> startpointer:char*(A), endpointer:char*(C)
 ;returns a string between startpointer and endpointer inclusive. endpointer and 4 bytes before it must be free
+;(5 is max possible length as 65535 is max 16 bit number)
 XOR D, D, D
 CMP A, D
 JZI iszero

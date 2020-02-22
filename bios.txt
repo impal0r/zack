@@ -1,4 +1,6 @@
-bios functions (addresses in decimal) - see bios.src for assembly source and more details:
+The bios initialises the stack pointer to 0xe000, prints a welcome message, and detects and runs programs in the memory.
+
+It also defines a few useful functions (addresses in decimal) - see bios.src for assembly source and more details:
 
 printc  - 107 (char(A))
 prints  - 110 (*str(A), len(C))

@@ -10,7 +10,9 @@ How to use Zack:
  - Press Ctrl-K to start/stop the clock
  - Left-click the keyboard in Poke mode to pass input to the simulated computer
 
-I have not yet found a way to overclock Logisim, but my computer can't simulate Zack at 4K Hz anyway and it works well enough :D
+Please refer to assemble.txt, instr.txt and bios.txt for further documentation.
+
+Note: I have not yet found a way to overclock Logisim, but my computer can't simulate Zack at 4K Hz anyway and it works well enough :D
 
 Credits:
  - Me
