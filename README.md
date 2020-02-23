@@ -1,5 +1,5 @@
 # zack
- A computer in logisim!
+ A 16-bit computer in logisim!
  Works with Logisim 2.7.1 (the last version, the main branch of logisim is sadly no longer maintained)
  Scripts are written in Python 3
 
