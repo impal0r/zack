@@ -54,6 +54,7 @@ LABELS
 PREPROCESSOR DIRECTIVES
 ***********************
 #DEFINE name replace - Replace name with replace after this statement
+#UNDEF name          - Reverse the effects of #define, only after this statement
 #INCLUDE file        - Effectively inserts the contents of file where this statement is.
                        Only .src and .mem files are supported, and .mem files included should be assembled
 		       raw.

@@ -178,10 +178,10 @@ def smart_replace(name, value, string):
                    r'\g<1>'+value+r'\2',
                    string)
 
-def preprocess(raw_lines):
+def preprocess(raw_lines, defined_names = {}):
     '''Removes comments, and evaluates preprocessor statements and macros
     -> (lines[], names{}, error) for assembler'''
-    names = {}
+    names = defined_names
     lines = [] #('LINE etc', original_line_number)
     error = 0
 
@@ -196,6 +196,35 @@ def preprocess(raw_lines):
         line = line[:line.find(';')].strip() #note: this removes the trailing \n
         #ignore empty lines
         if not line:
+            continue
+
+        #evaluate #DEFINE and #UNDEF before we replace names
+        if line.upper().startswith('#DEFINE '):
+            line = line.split()
+            try:
+                name = line[1]
+                if name.isalnum() and name[0].isalpha():
+                    value = ' '.join(line[2:])
+                    value = value.replace('\\n','\n').replace('\\\\','\\')
+                    names[name] = value
+                else:
+                    printerror('Preprocessor Error: Invalid name '+name,ii)
+                    error = 1
+            except IndexError:
+                printerror('Preprocessor Error: Expected name and value'
+                           'after #DEFINE statement',ii)
+                error = 1
+            continue
+        if line.upper().startswith('#UNDEF '):
+            line = line.split()
+            try:
+                name = line[1]
+            except IndexError:
+                printerror('Preprocessor Error: Expected name after #UNDEF', ii)
+            try:
+                del names[name]
+            except KeyError:
+                pass
             continue
 
         #evaluate names from the #DEFINE directive
@@ -216,22 +245,8 @@ def preprocess(raw_lines):
         split = line.split()
         #find preprecessor directives(starting with #)
         if line[0]=='#':
-            if split[0].upper()=='#DEFINE': #define names
-                try:
-                    name = split[1]
-                    if name.isalnum() and name[0].isalpha():
-                        value = ' '.join(split[2:])
-                        value = value.replace('\\n','\n').replace('\\\\','\\')
-                        names[name] = value
-                    else:
-                        printerror('Preprocessor Error: Invalid name '+name,ii)
-                        error = 1
-                except IndexError:
-                    printerror('Preprocessor Error: Expected name and value'
-                               'after #DEFINE statement',ii)
-                    error = 1
 
-            elif split[0].upper()=='#INCLUDE': #include a src /*or mem*/ file
+            if split[0].upper()=='#INCLUDE': #include a src /*or mem*/ file
                 if len(split) > 1:
                     filename = split[1]
                     ext = get_extension(filename)
@@ -250,7 +265,7 @@ def preprocess(raw_lines):
                                       'not supported',ii)
                                 error = 1
                             #properly process the file
-                            lines2, names2, error = preprocess(lines2) 
+                            lines2, names2, error = preprocess(lines2, defined_names=names) 
                             #add processed lines and names from file
                             lines.extend([(line2[0], i) for line2 in lines2])
                             names.update(names2)
@@ -604,7 +619,7 @@ for program in sys.argv[1:]:
                     i += mem[1]
                     rem = i%16
                     out_file.write( ' '*(5*rem + int(rem>7)) )
-            elif rle: #if there's a run write it encoded
+            elif rle: #run length encoding: check for runs and encode them
                 if prev_word is None: #skip first word
                     prev_word = word
                     continue
