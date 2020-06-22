@@ -1,18 +1,31 @@
 # zack
  A 16-bit computer in logisim!
- Works with Logisim 2.7.1 (the last version, the main branch of logisim is sadly no longer maintained)
- Scripts are written in Python 3
+ This project was intended as an educational resource, and I undertook it to better understand the workings of a cpu. It has a simple architecture with a hardwired decoder (which is unfortunately slightly messy), and simple IO for demonstration comprised of a keyboard, text output, and a 16x16 LED matrix - all built-in logisim components. As an educational resource it is of course not guaranteed to be fully functional by any measure.
 
-How to use Zack:
+ Works with Logisim 2.7.1 (the last version, the main branch of logisim is sadly no longer maintained)
+ Scripts have been tested with Python 3.7
+
+How to run Zack:
  - Open computer.circ with Logisim
  - Load a .mem program into the RAM (right-click on the RAM -> Load image -> select mem file -> Open)
  - Set the clock speed to the fastest possible (Simulate -> Tick Frequency -> 4.1KHz)
  - Press Ctrl-K to start/stop the clock
  - Left-click the keyboard in Poke mode to pass input to the simulated computer
+ 
+ How to program Zack:
+ - Copy the file userDefineLang.xml to Notepad++'s user defined language directory, which on Windows 10 is %AppData%\Roaming\Notepad++\
+ - Note: if you have already defined custom languages yourself please don't overwrite your own file, but merge the XML structure
+ - Create a .src file in the root of this project and open it in your favourite text editor, for example Notepad++
+ - Add `Z1.0 prog` as the first line in your file (or `Z1.0 bios` if you're writing another BIOS)
+ - Add #INCLUDE define.src at the top, which contains names for the BIOS functions (don't do this if you're writing another BIOS!)
+ - Write assembly code using the syntax and instructions in assemble.txt and instr.txt; see other .src files for examples
+ - Assemble to a .mem or .rom file using `> python3 assemble.py [filename] [options]`. This produces a memory image file in logisim's special format
+ - If you are writing another BIOS, load the .rom file into Zack's ROM module (the top one). Otherwise leave the top memory box alone and load your .mem file into the box below, the RAM.
+ - Caution: Zack does not use a standard calling convention, so the BIOS routines take paramters and return values in different registers. Each routine states its specifications separately in comments - see bios.src. I'm sorry it ended up this way.
 
 Please refer to assemble.txt, instr.txt and bios.txt for further documentation.
 
-Note: I have not yet found a way to overclock Logisim, but my computer can't simulate Zack at 4K Hz anyway and it works well enough :D
+Note: I have not found a way to overclock Logisim, but my computer can't handle Zack at 4K Hz anyway and it works well enough
 
 Credits:
  - Me
