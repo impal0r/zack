@@ -13,15 +13,16 @@ How to run Zack:
  - Left-click the keyboard in Poke mode to pass input to the simulated computer
  
  How to program Zack:
- - Copy the file userDefineLang.xml to Notepad++'s user defined language directory, which on Windows 10 is %AppData%\Roaming\Notepad++\
+ - Copy the file userDefineLang.xml to Notepad++'s user defined language directory, which on Windows 10 is `%AppData%\Roaming\Notepad++\`
  - Note: if you have already defined custom languages yourself please don't overwrite your own file, but merge the XML structure
  - Create a .src file in the root of this project and open it in your favourite text editor, for example Notepad++
+ - Right-click on the words 'Normal text file' in the bottom left of the Notepad++ window and select 'Zack Assembly' as the language to get syntax highlighting
  - Add `Z1.0 prog` as the first line in your file (or `Z1.0 bios` if you're writing another BIOS)
- - Add #INCLUDE define.src at the top, which contains names for the BIOS functions (don't do this if you're writing another BIOS!)
+ - Add #INCLUDE define.src as the next line, which contains names for the BIOS functions (don't do this if you're writing another BIOS!) - this step is optional but recommended
  - Write assembly code using the syntax and instructions in assemble.txt and instr.txt; see other .src files for examples
- - Assemble to a .mem or .rom file using `> python3 assemble.py [filename] [options]`. This produces a memory image file in logisim's special format
- - If you are writing another BIOS, load the .rom file into Zack's ROM module (the top one). Otherwise leave the top memory box alone and load your .mem file into the box below, the RAM.
- - Caution: Zack does not use a standard calling convention, so the BIOS routines take paramters and return values in different registers. Each routine states its specifications separately in comments - see bios.src. I'm sorry it ended up this way.
+ - Assemble to a .mem or .rom file using `> python assemble.py [filename] [options]`. This produces a memory image file in logisim's special format
+ - If you are writing another BIOS, load the .rom file into Zack's ROM module (the top one). Otherwise leave the ROM alone and load your .mem file into the box below, the RAM. If you left-click a component in edit mode, the type (eg. ROM or RAM) will show on the left.
+ - Caution: Zack does not use a standard calling convention, so the BIOS routines take parameters and return values in different registers. Each routine states its specifications separately in comments - see bios.src. I'm sorry it ended up this way.
 
 Please refer to assemble.txt, instr.txt and bios.txt for further documentation.
 
