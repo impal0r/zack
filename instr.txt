@@ -7,19 +7,21 @@ First word:
 |       -> decode ROM       |  (Z bus)  |  (X bus)  |  (Y bus)  |
 +---------------------------------------------------------------+
 
-Instruction bits (hex): Meaning
--------------------------------
+Instruction bits (hex): Meaning - Explanation
+---------------------------------------------
+Note: src1, src2 and dest refer to registers given in the instruction, as above
+
 00: NOP
 01: HLT
-08: LDI dest, imm
-09: LDAI dest, address[imm]
-0A: STI src2, address[imm]
-11: LDA dest, address[src2]
-12: STO src2, address[src1]
-13: PUSH src2
-14: MOV dest, src1
+08: LDI dest, imm - load immediate value into dest register
+09: LDAI dest, address[imm] - load value at immediate address into register
+0A: STI src2, address[imm] - store value in register at immediate address in memory
+11: LDA dest, address[src2] - load value pointed to by src2 into dest
+12: STO src2, address[src1] - store value in src2 at the address referenced by src1
+13: PUSH src2 - push value of src2 onto stack
+14: MOV dest, src1 - copy value of src1 into dest
 
-18: ADD
+18: ADD - add and the six instructions below are tertiary, so here dest := src1 + src2
 19: SUB
 1A: AND
 1B: OR
@@ -38,20 +40,21 @@ Instruction bits (hex): Meaning
 2B: DIVC (quotient->dest; rem->D; upper half of dividend <- D)
 2C: MUL (discard upper half)
 2D: DIV (no upper half)
-30: SHL
+30: SHL - bitwise shifts are also tertiary, so here dest := src1 << src2
 31: SHR
 32: SAR
 33: ROL
 34: ROR
 
-60: JMPI imm
-61: JZI imm
-62: JNZI imm
+The conditional jumps below check flags that were set by a previous instruction (similar to x86 architecture)
+60: JMPI imm - jump execution / set program counter to immediate address
+61: JZI imm - jump if zero
+62: JNZI imm - conditional jumps...
 63: JGI imm  \ signed
 64: JLI imm  /
 65: JAI imm  \ unsigned
 66: JBI imm  /
-68: JMP src2
+68: JMP src2 - jump execution / set program counter to address in register
 69: JZ src2
 6A: JNZ src2
 6B: JG src2  \ signed
@@ -59,7 +62,7 @@ Instruction bits (hex): Meaning
 6D: JA src2  \ unsigned
 6E: JB src2  /
 
-78: CALL imm
-79: RET
-7A: CALLR src2 (function address from src2, a register)
-7B: POP dest
+78: CALL imm - function call (push program counter to stack and jump to imm address)
+79: RET - return from function call (pop program counter from stack)
+7A: CALLR src2 - function call with function address from a register
+7B: POP dest - pop value from top of stack into register (dest := [SP]; SP++)

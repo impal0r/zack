@@ -1,10 +1,13 @@
 Z1.0 prog
+#INCLUDE define.src
+
 ENTRY:
-CALL 43 ;clrtty
+CALL clrtty
 LDAI C, length
 LDI A, text
-CALL 23 ;prints
+CALL prints
 HLT
+JMPI ENTRY
 
 length: CONST 14
 text:

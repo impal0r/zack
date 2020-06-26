@@ -2,7 +2,7 @@ Z1.0 bios
 ; Note: A, B, C, D are callee saved, while E, F, G are caller saved (ie not changed)
 ; Note also: in the PUSH instruction first we decrement SP and then write, so SP points to top of stack (don't get confused!)
 
-;set up stack pointer
+;set up stack pointer. We are reserving E000-FFFF (8K words or 16384 bytes) as the data segment
 LDI SP, 0xE000
 STI A, 0x0112 ;clear tty
 ;print("Hi, I'm Zack!\n")
@@ -16,7 +16,7 @@ LDI A, ' '
 STI A, 0x0111
 LDI A, 'I'
 STI A, 0x0111
-LDI A, ''' ;'
+LDI A, '''     ;fix notepad++ formatting by closing the '
 STI A, 0x0111
 LDI A, 'm'
 STI A, 0x0111
@@ -62,11 +62,11 @@ CMP A, B
 JZI halt
 JMP A
 
-printc: ;function(char(A))
+printc: ;function(char(A)) - this means `printc` takes one argument, the character to print, in register A
 STI A, 0x0111 ;to TTY
 RET
 
-prints: ;function(*str(A), len(C))
+prints: ;function(*str(A), len(C)) - this means `prints` takes two arguments: the pointer to the string in A, and the string length in C
 ADD B, A, C
 printsLoop1:
 LDA D, A
@@ -87,7 +87,7 @@ RET
 
 halt: ;function()
 HLT
-JMPI halt
+JMPI halt ;in case someone cancels the halt by pushing CONTINUE
 
 clrtty: ;function()
 STI A, 0x0112 ;TTY clear pin (data ignored, just writing to it will clear)
@@ -105,6 +105,7 @@ ADD C, C, B
 STO D, C
 RET
 
+;using macros instead of a loop below makes this noticeably faster
 showimg: ;function(*cols(A))
 #REPEAT 15 i
 LDA D, A

@@ -1,4 +1,5 @@
-Use python3 assemble.py [program name] [options] to assemble a program into a .mem or .rom file.
+The assembler is written in Python 3.7
+Use python assemble.py [program name] [options] to assemble a program into a .mem or .rom file.
 This file can then be loaded into the RAM or ROM of the computer using Logisim's GUI interface.
 
 FILE FORMAT
@@ -8,6 +9,7 @@ FILE FORMAT
     and <descr> is either "bios" (assemble raw to go in ROM), "raw" (output raw shellcode),
     or "prog" (assemble as a program to go in RAM).
    (Command line options '-bios', '-raw', '-prog' override this)
+   Example: `Z1.0 prog`
  - A semicolon ; starts a single line comment. Multiline comments are not supported.
 
 
@@ -15,15 +17,15 @@ ASSEMBLY INSTRUCTIONS
 *********************
  - Format is based on Intel format, see instr.txt for specific instruction details.
  - Most arithmetic instructions take 3 arguments, 2 source registers and 1 destination register.
- - Registers are known as A, B, C, D, E, F, G, SP.
- - Also, `CONST [immediate]` assembles to just the immediate value in memory, so it can be used for
-   static data.
+ - Registers are known as A, B, C, D, E, F, G, SP (stack pointer)
+ - Also, `CONST [immediate]` assembles to just the immediate value in memory, and so it can be used
+   to define static data. It can be used anywhere in the program.
 
 EXAMPLES:
   ADD A, B, C   ;add B and C and store the result in A
   LDA D, A      ;load the value at the memory address pointed to by A into the register D
   LDAI D, 0x100 ;load value at memory address 0x100 into register D
-  LDI D, 'A'    ;load the character A (ie 65) into D
+  LDI D, 'A'    ;load the character A (ASCII 65) into D
 (spaces between arguments are required)
 
 IMMEDIATE VALUES
@@ -48,8 +50,11 @@ LABELS
 ******
  - Found at the start of a line, followed immediately by a colon.
  - Labels must be alphanumeric and cannot start with a digit.
- - They can be used in place of immediates in a instruction (ie. it evaluates to the address).
- - If assembling a program (not bios), an 'ENTRY' label is required, pointing at the entry point of the program.  - This will be jumped to after startup.
+ - They can be used in place of immediates in a instruction (ie. it evaluates to the address). Useful for jumping
+   to a label in a loop, or for calling a labelled function.
+ - If assembling a program (not bios), an 'ENTRY' label is required, pointing at the entry point of the program.
+   The BIOS will start execution at this address after it has finished.
+`Example:`
 
 PREPROCESSOR DIRECTIVES
 ***********************
@@ -64,3 +69,5 @@ PREPROCESSOR DIRECTIVES
 #ENDM                - Signifies the end of a macro block
 #REPLN number line   - Repeat a single line number times. No #ENDM directive needed.
 
+Comprehensive examples can be found in the .src files in this project, as all the syntax and functionality
+here was created for use cases in those programs.

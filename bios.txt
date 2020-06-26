@@ -1,6 +1,6 @@
-The bios initialises the stack pointer to 0xe000, prints a welcome message, and detects and runs programs in the memory.
+The bios initialises the stack pointer to 0xe000, prints a welcome message, and detects and runs programs in the memory. If the value at address 0x0200 is nonzero, the BIOS passes execution to code pointed to by 0x0200 (ie. jumps to the address contained in 0x0200), otherwise the BIOS halts. As such each program should specify the entry point by a pointer located at address 0x0200. Note that the assembler does this automatically with the '-prog' flag, or if the first line of a source file is `Z1.0 prog`.
 
-It also defines a few useful functions (addresses in decimal) - see bios.src for assembly source and more details:
+The BIOS also defines a few useful IO functions (addresses below in decimal) - see bios.src for assembly source and more details:
 
 printc  - 107 (char(A))
 prints  - 110 (*str(A), len(C))
@@ -11,12 +11,13 @@ clrscr  - 134 ()
 showcol - 137 (colnum(C), value(D))
 showimg - 145 (*cols(A))
 
-(you can include define.src to use the names of the functions as in the example programs)
+(you can include define.src to use the names of the functions, as demonstrated in the example programs)
 
-Note: prints uses registers A, B, D
-      showimg uses registers A and D
-      getc overwrites A, B
-      showcol overwrites B, C
-      The other functions don't overwrite any registers.
+Note: prints modifies registers A, B, D
+      showimg modifies registers A and D
+      getc modifies A, B
+      showcol modifies B, C
+      The other functions don't modify any registers.
+      The registers E, F, G are caller saved.
 
-Also note: DONT call prints with a length(register C) of ZERO!!!
+Also note: DONT call prints with register C (this is the length) set to ZERO!!!
