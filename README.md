@@ -6,7 +6,7 @@
  The reason this project exists is an educational one: by building everything from the ground up, including designing my own instruction set, processor, IO layout, and assembly compiler, I learned a lot about the details and edge cases of this kind of system design, and hope to make something more complicated in the future.
  
 ### Future:
- - Need to improve the obscure documentation, I don't know what I was thinking writing that
+ - Need to improve the obscure documentation
  - Write a program to test the instruction set
  - Make a version 2??
  - I have read that https://github.com/hneemann/Digital can be clocked much faster than logisim, and is still currently maintained, so if I go ahead and make a second version I'll very likely switch from logisim to Digital
