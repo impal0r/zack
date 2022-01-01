@@ -1,8 +1,35 @@
 Z1.0 bios
-; Note: A, B, C, D are callee saved, while E, F, G are caller saved (ie not changed)
-; Note also: in the PUSH instruction first we decrement SP and then write, so SP points to top of stack (don't get confused!)
+; Note: in all my code, registers A B C D are callee saved,
+;  while E F G are caller saved
+; Note: in the PUSH instruction first we decrement SP and then write,
+; so SP always points to top of stack
 
-;set up stack pointer. We are reserving E000-FFFF (8K words or 16384 bytes) as the data segment
+;Memory layout of Zack:
+;0000-0FFF      ROM, contains this 'bios' code
+;1000-1FFF      For memory-mapped IO. Only a few addresses are actually used
+;2000-DFFF      RAM: For program code, and the stack which grows downwards from DFFF *
+;E000-FFFF      RAM: Dynamic data
+;technically you could put dynamic data anywhere you want in the RAM, and you could
+;change the stack pointer within a program, and even write self-modifying code.
+;This model computer is pretty simple and has few hardware restrictions.
+
+;You could also pass function arguments and return values on the stack, which
+;I don't do because it takes up extra cycles and logisim can only clock Zack up
+;to 4kHz which is SO slow.
+
+; * The address of the program's entry point must be pointed to by
+;   the value in 0x2000. The bios checks if there is anything in
+;   memory at 0x2000, and if there is it reads the value and makes
+;   Zack start executing code at that location in memory. Since the
+;   machine code for NOP is 0x0000, and logisim's RAM is initialised
+;   to all zeroes, a bad value at 0x2000 on startup can cause Zack
+;   to do nothing for a long time as it churns through a sled of NOPs,
+;   and then when the program counter finally loops back to 0x0000
+;   and executes the bios again, the same thing happens, and so on in
+;   an infinite loop. This behaviour is just caused by a nonsense value
+;   in 0x2000 which doesn't point to any code.
+
+;Set up stack pointer
 LDI SP, 0xE000
 STI A, 0x0112 ;clear tty
 ;print("Hi, I'm Zack!\n")
@@ -16,7 +43,7 @@ LDI A, ' '
 STI A, 0x0111
 LDI A, 'I'
 STI A, 0x0111
-LDI A, '''     ;fix notepad++ formatting by closing the '
+LDI A, ''' ; fix notepad++ formatting by closing the '
 STI A, 0x0111
 LDI A, 'm'
 STI A, 0x0111
@@ -34,8 +61,11 @@ LDI A, '!'
 STI A, 0x0111
 LDI A, '\n'
 STI A, 0x0111
-;show smiley face
+;Show smiley face
 STI A, 0x110 ;clear screen
+;an unrolled and optimised loop:
+;we need to write 16 values to memory (16 columns of scrren)
+; and some of the values are the same
 LDI A, 0x0060
 STI A, 0x101
 STI A, 0x10e
@@ -55,18 +85,22 @@ STI A, 0x106
 STI A, 0x107
 STI A, 0x108
 STI A, 0x109
-;run program if there
-LDAI A, 0x0200
-XOR B, B, B
+;Run program if one is loaded into memory
+;the address of the program's entry point should be placed at 0x0200
+LDAI A, 0x0200 ;A = *(0x0200)
+XOR B, B, B ;B = 0;
 CMP A, B
-JZI halt
-JMP A
+JZI halt ;if (A == 0) halt();
+JMP A ;else run the program
 
-printc: ;function(char(A)) - this means `printc` takes one argument, the character to print, in register A
+;printc takes one argument, the character to print, which should be in
+; register A
+;This is summarised by the comment on the next line:
+printc: ;function(char(A))
 STI A, 0x0111 ;to TTY
 RET
 
-prints: ;function(*str(A), len(C)) - this means `prints` takes two arguments: the pointer to the string in A, and the string length in C
+prints: ;function(*str(A), len(C))
 ADD B, A, C
 printsLoop1:
 LDA D, A
@@ -85,9 +119,21 @@ JZI getcLoop1
 LDAI A, 0x0113 ;keyboard data
 RET
 
+;Zack has a blue CONTINUE button that cancels a HALT instruction, and allows
+; code after it to continue executing. This is a feature useful for debugging.
+; However we don't want that behaviour here, so the line 'JMPI halt' ensures
+; the HALT instruction just gets executed again if someone presses CONTINUE.
+; This way the HALT of the bios halt function is actually final.
 halt: ;function()
 HLT
-JMPI halt ;in case someone cancels the halt by pushing CONTINUE
+JMPI halt ;Note we can jump to the address of a function just as easily as calling it
+          ;Here we're never going to RET from the function and the line 'JMPI halt' will run
+		  ;as many times as the user presses CONTINUE (which could be as many times
+		  ;as they like). Therefore a CALL here could grow the stack until we run out
+		  ;of memory causing a bug or crash.
+		  ;In fact in my code I will usually use 'JMPI halt' instead of
+		  ;'CALL halt' to cause a hard halt, because why save the program counter to
+		  ;the stack when you aren't going to need it anyway?
 
 clrtty: ;function()
 STI A, 0x0112 ;TTY clear pin (data ignored, just writing to it will clear)
@@ -98,15 +144,17 @@ STI A, 0x0110 ;LED matrix clear pin (data ignored, just writing will clear)
 RET
 
 showcol: ;function(colnum(C), value(D))
-LDI B, 0xf ;mask to keep only bottom 4 bits
-AND C, C, B
-LDI B, 0x0100 ;0x0100 through 0x010f are the columns of the LED matrix
-ADD C, C, B
-STO D, C
+;show the contents of D on the (C)'th column of the virtual LED matrix display
+;words are 16 bits, and a display column is 16 pixels - perfect!
+LDI B, 0xf  ;mask to keep only bottom 4 bits:
+AND C, C, B ;C = C & 0b0000000000001111 = C modulo 16
+LDI B, 0x0100 ;writing to 0x0100 through 0x010f sets the columns of the display
+ADD C, C, B ;C = 0x100 + C = DISPLAY + colnum
+STO D, C ;DISPLAY[colnum] = value
 RET
 
-;using macros instead of a loop below makes this noticeably faster
-showimg: ;function(*cols(A))
+showimg: ;function(*columns(A))
+;the same as showcol, but for an array of 16 columns to fill the whole display
 #REPEAT 15 i
 LDA D, A
 STI D, 0x100+i
