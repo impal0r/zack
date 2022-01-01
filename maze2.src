@@ -1,56 +1,85 @@
 Z1.0 prog
-;E - x (x and y point to where we are in the screen)
+
+;This is the optimised assembly code for the maze game, as emulated in python in
+; "maze.pyw", and as I first implemented in "maze.src". It makes good use of
+; almost all the features of Zack and of the custom assembler "assemble.py",
+; in fact some of the features were implemented specifically with this game in
+; mind, including preprocessor macros and the indirect call instruction CALLR.
+
+;We reserve the registers E, F, G for the following, to save time:
+;E - x (x and y point to the player's screen position)
 ;F - 1 << y (store like this for efficiency)
-;G - grid_ptr (start of current display grid)
+;G - grid_ptr (points to start of current screen in memory)
 ;NB: x goes left-to-right, y goes bottom-to-top
+
+;The main structure of the program is that we check for user input in an infinite
+; loop, and if the user presses a WASD key the corresponding function is called to
+; move the player, or if they press Q we quit the program and execute the HALT
+; instruction. If the user wins the game we show a nice message and then reset
+; the game once any key is pressed.
+;The wall of code around line 320 explains how the layout of the maze is
+; implemented.
+
 #INCLUDE define.src
 #DEFINE CC CONST
 #DEFINE SIZEX 2 ;size of field in quadrants
 #DEFINE SIZEY 2
 #DEFINE STARTX 1 ;starting position (always start in NW quadrant)
 #DEFINE STARTY 0x4000 ;1 << 14
+
 ;store variables in f000-ffff
-#DEFINE sqx 0xf000
-#DEFINE sqy 0xf001
+;there is no memory allocator and since this will be the only code running
+;(no other program can run at the same time) we just statically allocate variables
+#DEFINE sqx 0xf000 ;fixed address of the variable sq_x
+#DEFINE sqy 0xf001 ;fixed address of the variable sq_y
 ;lookup table for chars will be at f100-f1ff
 
+; -------------------------- START OF CODE --------------------------
+
 showgrid: ;function()
-MOV A, G
-#REPEAT 15 i
+MOV A, G ;grid_ptr into A
+#REPEAT 15 i ;a preprocessor macro, i = 0..15
 LDA D, A
-STI D, 0x100+i
+STI D, 0x100+i ;columns of the actual screen - IO is memory-mapped
 INC A
-#ENDM
+#ENDM ;end preprocessor macro (#REPEAT two lines above)
 LDA D, A
 STI D, 0x10f
 RET
 
+;A function to draw the player on the screen
+;Since the screen is small the player's sprite is a single pixel
+;The position of the player on the screen is (x,y), where x is
+; stored in register E and 1<<y is stored in F.
 showplayer: ;function()
-;show player in x-th column
-LDI A, 0x0100
-ADD A, A, E
+;show player on pixel y in x-th column
+;overall : SCREEN[x] = SCREEN[x] | 1<<y
+LDI A, 0x0100 ;A = SCREEN (Zack has memory-mapped IO)
+ADD A, A, E ;A = SCREEN + x
 LDA D, A ;D = SCREEN[x]
 OR D, D, F ;D = SCREEN[x] | 1<<y
-STO D, A
+STO D, A ;SCREEN[x] = D
 RET
 
 reset: ;function()
 STI A, 0x0112 ;clrtty, data ignored it just sets the clear pin high
-;reset variables
+;Reset variables
 LDI E, STARTX ;x = STARTX
 LDI F, STARTY ;y = STARTY
-XOR G, G, G
-STI G, sqx
-STI G, sqy ;sq_y = sq_x = 0
-LDI G, FIELD ;grid_ptr -> FIELD
-;show starting area (unrolled)
+XOR G, G, G ;zeroing out G so that we can set sq_y = 0; sq_x = 0;
+STI G, sqx ;storing the value in G (0) at the address of sq_x in memory
+STI G, sqy ;as above, sq_y = 0;
+LDI G, FIELD ;set grid_ptr (stored in G) to the top-left corner of the maze
+             ; which is the address of the start of FIELD with no offset
+;Show starting area (unrolled). Could use the showgrid function above but that
+; would waste cpu cycles and logisim clocks the cpu very slowly
 #REPEAT 16 i
 LDAI D, FIELD+i
-STI D, 0x100+i ;cols of screen
+STI D, 0x100+i
 #ENDM
-;show player
+;Show player
 CALL showplayer
-;show message (unrolled)
+;Show message (unrolled)
 #REPEAT 33 i ;welcomeMsg is 33 chars long
 LDAI D, welcomeMsg+i
 STI D, 0x0111 ;out to tty
@@ -71,7 +100,11 @@ STI A, 0x100+i
 #ENDM
 RET
 
-movnorth: ;function() -> !won(A) (if A==0 then we have won)
+;the movnorth function returns a single value in the register A
+;if A is zero after the function has returned, this means the player has won
+;otherwise the player hasn't won yet
+;this is summarised in the comment on the line below
+movnorth: ;function() -> ~won(A) (if A==0 then player has won)
 LDI A, 0x8000
 CMP F, A ;1<<y==0x8000 -> y==15
 JZI movnorthYeq15
@@ -115,7 +148,7 @@ CALL win
 XOR A, A, A ;A = 0: signal we have won
 return: RET
 
-movwest: ;function() -> !won(A)
+movwest: ;function() -> ~won(A)
 XOR A, A, A ;A = 0
 CMP E, A
 JZI movwestXeq0
@@ -158,7 +191,7 @@ CALL win
 XOR A, A, A ;A = 0: show we have won
 RET
 
-movsouth: ;function() -> !won(A) (if A==0 then we have won)
+movsouth: ;function() -> ~won(A) (if A==0 then we have won)
 LDI B, 1
 CMP F, B ;1<<y==1 -> y==0
 JZI movsouthYeq0
@@ -201,7 +234,7 @@ CALL win
 XOR A, A, A ;A = 0: signal we have won
 RET
 
-moveast: ;function() -> !won(A)
+moveast: ;function() -> ~won(A)
 LDI A, 15
 CMP E, A
 JZI moveastXeq15
@@ -244,15 +277,19 @@ CALL win
 XOR A, A, A ;A = 0: show we have won
 RET
 
+; -------------------------- ENTRY POINT OF PROGRAM --------------------------
+
 ENTRY:
+
 ;set up lookup table for chars at offset f100
 ;NULL entry (zero) means do nothing
 ;otherwise contains address of function to CALL
-;all values f100-f1ff will be zero by default so we only need to set a few
-LDI A, movnorth
-STI A, 0xf100+'w'
+;all values f100-f1ff are assumed to be initialised to zero so we only need to
+; set a few
+LDI A, movnorth ;here we load the address of the function movnorth into A
+STI A, 0xf100+'w' ;here we use the fact that the assembler can add constant literals
 LDI A, movwest
-STI A, 0xf100+'a'
+STI A, 0xf100+'a' ;the value in A is stored at the address 0xf100+'a' = 0xf161
 LDI A, movsouth
 STI A, 0xf100+'s'
 LDI A, moveast
@@ -269,7 +306,7 @@ LDA A, A
 CMP A, B ;B is still 0
 JZI gameloop
 CALLR A
-XOR B, B, B ;B = 0
+XOR B, B, B ;B <= 0
 CMP A, B
 JZI won
 JMPI gameloop
@@ -286,10 +323,33 @@ JZI quit
 CALL reset
 JMPI gameloop
 
-FIELD:
+; -------------------------- CONSTANT DATA --------------------------
+
+;constant data means the layout of the maze, and the various text messages
+; displayed throughout the game. These take up multiple words
+
 #DEFINE wal CC 0xffff
-#DEFINE p CC 0x9201
-#DEFINE w CC 0x9e79
+;The layout of the maze in memory is each word represents a column.
+;Each bit of the word is set to 1 to represent a wall or 0 to represent
+; walkable space.
+;There are 46 columns in a row, so that each row is 3 16x16 screens which
+; share one column on the borders.
+;There are 3 rows. The bottom (least significant) row of pixels in each column
+; of a row must be the same as the top (most significatnt) row of pixels in
+; each column of the row below. See the file "maze.png" for visual explanation.
+;When the player steps anywhere outside the grid, they win the game. So most of
+; the leftmost and rightmost columns are 0xffff, ie all walls, which I have
+; abbreviated to 'wal' using the preprocessor definition just above.
+;At the top of the program I defined "CC" -> "CONST". The CONST keyword
+; assembles an immediate literal to a single word in memory. Essentially FIELD
+; is a constant array of 138 columns, and a column takes up one word.
+;grid_ptr (kept in the register G) will point to the first column currently
+; shown on the screen. To move right or left grid_ptr changes by 15, and to move
+; up or down it changes by 46 - this is handled in the movnorth, movwest, moveast
+; and movsouth functions. The reason each of these is an ugly monolithic function
+; is optimisation.
+FIELD:
+;first row
 wal
 CC 0x8001
 CC 0x8001
@@ -306,8 +366,9 @@ CC 0x9fff
 CC 0x9040
 CC 0x9040
 CC 0x9279
-p
-p
+
+CC 0x9201
+CC 0x9201
 CC 0x93ff
 CC 0x8200
 CC 0x8200
@@ -323,9 +384,10 @@ CC 0x8201
 CC 0xf3cf
 CC 0x9240
 CC 0x9240
+
 CC 0x927f
-p
-p
+CC 0x9201
+CC 0x9201
 CC 0x93f9
 CC 0x9008
 CC 0x9008
@@ -336,10 +398,12 @@ CC 0x924f
 CC 0x9040
 CC 0x9040
 wal
+
+;second row
 wal
 CC 0x8040
 CC 0x8040
-w
+CC 0x9e79
 CC 0x1048
 CC 0x1048
 CC 0xf24f
@@ -351,7 +415,8 @@ CC 0x1249
 CC 0xf249
 CC 0x1049
 CC 0x1049
-w
+CC 0x9e79
+
 CC 0x8201
 CC 0x8201
 CC 0xf3ff
@@ -364,9 +429,10 @@ CC 0x9fcf
 CC 0x8208
 CC 0x8208
 CC 0xf249
+
 CC 0x1248
 CC 0x1248
-w
+CC 0x9e79
 CC 0x8209
 CC 0x8209
 CC 0xffc9
@@ -379,6 +445,8 @@ CC 0xf24f
 CC 0x0240
 CC 0x0240
 wal
+
+;third row
 wal
 CC 9
 CC 9
@@ -395,6 +463,7 @@ CC 0x9ff9
 CC 0x9009
 CC 0x9009
 CC 0x93c9
+
 CC 0x8249
 CC 0x8249
 CC 0xf249
@@ -410,6 +479,7 @@ CC 0xf3cf
 CC 0x0049
 CC 0x0049
 CC 0xffc9
+
 CC 0x0049
 CC 0x0049
 CC 0xf3cf
@@ -426,7 +496,7 @@ CC 0x1001
 CC 0x1001
 CC 0xfff9
 
-WINIMG:
+WINIMG: ;shown when you complete the game
 CC 0x0000
 CC 0x0060
 CC 0x1878
