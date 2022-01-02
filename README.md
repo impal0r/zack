@@ -1,4 +1,7 @@
 # zack
+
+![Screenshot of Zack in logisim](/images/zack.PNG)
+
  Zack is an demonstration of a 16-bit RISC computer implemented in logisim. It uses a non-standard instruction set, and includes an assembler (written in python) which translates from Intel-like assembly to bytecode, which can be loaded into memory manually. The default programs include noughts-and-crosses (aka. tic-tac-toe), a maze game, and some test programs.
  
  Zack has a relatively simple architecture, with a hardwired decoder and a 2-bit internal phase counter, and is connected to some memory-mapped IO for demonstration purposes (keyboard, text console, and a 16x16 LED matrix - all built-in logisim components). It has a ROM module which contains the "bios", and a RAM module for loading programs.
