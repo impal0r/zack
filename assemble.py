@@ -95,13 +95,25 @@ def inline_to_int(number, recurse=None):
         recurse = inline_to_int
     
     #is it a character?
-    if len(number)==3 and number[0]==number[2]=="'":
-        if number[1]=='\x00': return ord(' ')
+    if len(number) == 3 and number[0] == number[2] == "'":
+        if number[1] == '\x00':
+		    return ord(' ')
         num = ord(number[1])
         if num > 256: raise ValueError #zack doesn't support unicode
         return num
     elif len(number)==4 and number[0]==number[3]=="'" and number[1]=='\\':
-        return ord(eval(number))
+	    if number[2] == 'n':
+		    return ord('\n')
+		elif number[2] == 't':
+		    return ord('\t')
+		elif number[2] == 'r':
+		    return ord('\r')
+		elif number[2] == 'b':
+		    return ord('\b')
+		elif number[2] == '\\':
+		    return ord('\\')
+		else:
+		    raise ValueError
 
     #base + offset
     if '+' in number:
@@ -560,7 +572,7 @@ for program in sys.argv[1:]:
     error = 0
     #check file header
     first_line = raw_lines.pop(0).strip().split()
-    if len(first_line)!=2 or first_line[0][0]!='Z' or first_line[1] not in 'bios raw prog':
+    if len(first_line)!=2 or first_line[0][0]!='Z' or first_line[1] not in ('bios', 'raw', 'prog'):
         print('Error: Invalid file header',file=sys.stderr)
         error = 1
     elif first_line[0][1:] not in ('1','1.0'):
@@ -647,7 +659,8 @@ for program in sys.argv[1:]:
                 out_file.write(f'{word:04x}')
                 i += 1
             #keep track of previous word for run length encoding
-            if rle: prev_word = word
+            if rle:
+                prev_word = word
         out_file.write('\n')
 
     print('Assembled',program,'to',out_name+'!')
