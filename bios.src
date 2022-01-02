@@ -155,7 +155,7 @@ RET
 
 showimg: ;function(*columns(A))
 ;the same as showcol, but for an array of 16 columns to fill the whole display
-#REPEAT 15 i
+#REPEAT 15 i ;using a preprocessor macro instead of a loop, makes it noticeably faster
 LDA D, A
 STI D, 0x100+i
 INC A

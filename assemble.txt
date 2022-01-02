@@ -1,73 +1,157 @@
-The assembler is written in Python 3.7
-Use python assemble.py [program name] [options] to assemble a program into a .mem or .rom file.
-This file can then be loaded into the RAM or ROM of the computer using Logisim's GUI interface.
 
-FILE FORMAT
-***********
- - The first line of an assembly program file must be "Z<ver> <descr>\n",
-    where <ver> is the Zack version (currently 1.0)
-    and <descr> is either "bios" (assemble raw to go in ROM), "raw" (output raw shellcode),
-    or "prog" (assemble as a program to go in RAM).
+* The Assembler and Programming for Zack *
+------------------------------------------
+
+The assembler, written in Python 3.7, converts an assembly program in a '.src' file into a
+'.mem' file which logisim lets you load into Zack's memory module. It uses a syntax similar
+to Intel assembly syntax, and supports comments and basic macros. This file explains the '.src'
+file format and how to use the assembler, and 'instr.txt' contains a list of instructions
+supported by Zack.
+
+Running the assembler
+---------------------
+To assemble a program, open a command/terminal window and run
+`python assemble.py [program].src [options]`
+If there are no errors this should create (or overwrite by default) the file `[program].mem`.
+Multiple source files can also be assembled by just listing the filenames.
+
+Command line options:
+ -help         Prints a help message
+ -rle          Compresses the output file(s) with run-length encoding
+ -printlabels  Outputs all the labels and their addresses (for debugging)
+ -raw          Assembles all input files raw
+ -bios         Assembles all input files raw as a bios
+ -prog         Assembles all input files as a program
+
+File Header
+-----------
+The first line (header) of a '.src' file must be "Z<ver> <descr>\n",
+    where <ver> is "1.0" (the current Zack version)
+    and <descr> is either "bios" (assemble raw to go in ROM),
+                          "raw" (output raw hex encoding with no context),
+                       or "prog" (assemble as a program to go in RAM).
    (Command line options '-bios', '-raw', '-prog' override this)
-   Example: `Z1.0 prog`
- - A semicolon ; starts a single line comment. Multiline comments are not supported.
+
+For example: "Z1.0 prog" - for a normal program
+             "Z1.0 bios" - for a bios
+             "Z1.0 raw"  - for eg. raw data to be used in a separate program
+
+Comments
+--------
+; A semicolon starts a single line comment
+; Multiline comments are not supported
 
 
-ASSEMBLY INSTRUCTIONS
-*********************
- - Format is based on Intel format, see instr.txt for specific instruction details.
- - Most arithmetic instructions take 3 arguments, 2 source registers and 1 destination register.
- - Registers are known as A, B, C, D, E, F, G, SP (stack pointer)
- - Also, `CONST [immediate]` assembles to just the immediate value in memory, and so it can be used
-   to define static data. It can be used anywhere in the program.
+Assembly instructions
+---------------------
+ - The cpu registers are called A, B, C, D, E, F, G, SP (Stack Pointer)
+ - See instr.txt for a list of supported instructions and their arguments
+ - Arguments can be registers or immediate values (at most one immediate per instruction)
+ - The phrase "CONST [immediate]" is also supported - it assembles to just one word containing
+   the immediate value (like static data)
 
-EXAMPLES:
-  ADD A, B, C   ;add B and C and store the result in A
-  LDA D, A      ;load the value at the memory address pointed to by A into the register D
-  LDAI D, 0x100 ;load value at memory address 0x100 into register D
-  LDI D, 'A'    ;load the character A (ASCII 65) into D
-(spaces between arguments are required)
+For example:
+ADD B, B, C  ; The numbers in registers B and C are added and the result stored back in B
+LDI A, 2     ; The immediate value 0x0002 is written to A
+CONST 2      ; Tells the assembler to just output the word 0x0002 at this point in the code
 
 IMMEDIATE VALUES
-****************
- - Can be a normal decimal integer, or in hexadecimal (prefixed 0x- or suffixed -h), or similarly for (o)ctal,
-   (b)inary, and (d)ecimal as well.
- - You can also use 'base+offset' notation (note this only works with a single + sign and no whitespace) - this
-   is particularly useful with the REPEAT macro.
- - An immediate can also be a single ASCII character, surrounded by 'single quotes', including space and escape
-   sequences such as '\n' and '\t'
+----------------
+* Integers
+ - A normal decimal integer, such as "0", "2", "1000", "65537", "-5"
+ - A positive or negative integer in a different base (binary/octal/decimal/hex), such as "0b10010",
+   "0xbeef", "-0xfe", "0o01234567"
+ - Positive integers bigger than 65535 are taken modulo 65536 (the lower 16 bits)
+ - 2's complement is used for negative integers (after taking the positive integer mod 65536)
+* Single ASCII characters, surrounded by two single quotes
+ - 'a', '!', ' '
+ - Escaped special characters: '\n'=10, '\r'=13, '\t'=9, '\b'=8
+ - Both '\' and '\\' work for backslash
+ - ''' works for single quote, but breaks custom syntax highlighting in notepad++
+   (the solution is ''';' using a single quote in a comment to close the third quote)
+* Labels (see below)
+* Base+offset
+ - Base and offset can be any valid immediate
+ - only works with a single +, and there can't be any spaces between Base, + and offset
+ - particularly useful in combination with the #repeat macro, which allows
+   a counter that increments each repeat
+ - Examples: "1+2", "0xf000+'w'", "label+-2", "0x1010+counter"
 
-EXAMLES:
-  0
-  0b11011
-  80h
-  'q'
-  ' '
-  '\n'
-  0xf000+'q'
+Labels
+------
+* Found at the start of a line, followed immediately by a colon.
+* Labels must be alphanumeric and cannot start with a digit.
+* They point to the address of the first word of the following instruction or CONST value
+* They can be used in place of immediates in a instruction (ie. the label evaluates to its address)
+* If assembling a program (not bios), an 'ENTRY:' label is required, just before the entry point of the program.
+  On starting Zack, the BIOS will cause the code just after the ENTRY label to run.
 
-LABELS
-******
- - Found at the start of a line, followed immediately by a colon.
- - Labels must be alphanumeric and cannot start with a digit.
- - They can be used in place of immediates in a instruction (ie. it evaluates to the address). Useful for jumping
-   to a label in a loop, or for calling a labelled function.
- - If assembling a program (not bios), an 'ENTRY' label is required, pointing at the entry point of the program.
-   The BIOS will start execution at this address after it has finished.
-`Example:`
+For example:   ; this is not a valid label, it has a space in the middle
+goodLabel1:
+ badLabel1 :   ; label must be at start of line, and no space before colon
+2badLabel:     ; can't start with a digit
+bad_label_3:   ; underscores aren't allowed
+CONST 2        ; If all the labels above were valid, they would all point here
 
-PREPROCESSOR DIRECTIVES
-***********************
-#DEFINE name replace - Replace name with replace after this statement
-#UNDEF name          - Reverse the effects of #define, only after this statement
-#INCLUDE file        - Effectively inserts the contents of file where this statement is.
-                       Only .src and .mem files are supported, and .mem files included should be assembled
-		       raw.
-#REPEAT number ctr   - Repeat the following lines (until an #ENDM directive is reached) number times.
-                       Optional argument ctr is a variable name which will increment from 0 to number-1
-                       over each repeat, and can be used as a label inside the block (like a for loop).
-#ENDM                - Signifies the end of a macro block
-#REPLN number line   - Repeat a single line number times. No #ENDM directive needed.
+Preprocessor directives / Macros
+--------------------------------
+They don't have to be in ALL CAPS, but I think it makes the code more readable.
 
-Comprehensive examples can be found in the .src files in this project, as all the syntax and functionality
-here was created for use cases in those programs.
+#DEFINE name <replace> - Replace every occurence of `name` with <replace> after this statement.
+                         (except in another #define or #undef macro).
+                         Takes precedence over a label with the same name, beacuse the preprocessor runs first.
+                         A second define with the same name will just change <replace> for the below code.
+#UNDEF name            - Reverse the effects of #define, only after this statement
+#INCLUDE file          - Effectively inserts the contents of file where this statement is (except for
+                         the header line).
+                         Only .src and .mem files are supported, and .mem files included should be assembled
+		         raw.
+#REPEAT <number> name  - Repeat the following lines (until an #ENDM directive is reached) <number> times.
+                         `name` is optional. If present, the label `name` is created and only exists within the
+                         repeated block. Its value is 0 for the first repeat and it increments each repeat,
+                         like a loop counter.
+#ENDM                  - Signifies the end of a macro block
+#REPLN <number> line   - Repeat a single line <number> times. No #ENDM directive needed.
+
+** Macro Example 1 **
+;four ways of incrementing A by two:
+;1.
+#DEFINE incA INC A
+incA
+incA
+;2.
+#REPLN 2 INC A
+;3.
+#REPEAT 2
+INC A
+#ENDM
+;4.
+#DEFINE two 2
+LDI B, two
+ADD A, A, B
+;1,2,3 are the same code written differently, while 4 is different code
+
+** Macro Example 2 **
+#DEFINE two 2
+LDI A, two    ;LDI A, 2  (2 -> A)
+#DEFINE two 3
+LDI B, two    ;LDI B, 3  (3 -> B)
+#UNDEF two
+LDI C, two    ;error, two is not defined
+
+** Macro Example 3 **
+#REPEAT 3 ctr
+LDI A, ctr
+STI A, 0xf000+ctr
+#ENDM
+;which becomes
+LDI A, 0
+STI A, 0xf000
+LDI A, 1
+STI A, 0xf001
+LDI A, 2
+STI A, 0xf002
+;so 0 is written to 0xf000, 1 to 0xf001 and 2 to 0xf002
+
+More examples can be found in the .src files in this project, as all the syntax and functionality
+here was implemented for use cases in those programs.

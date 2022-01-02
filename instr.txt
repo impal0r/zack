@@ -1,60 +1,113 @@
-Instructions always 1 word (2 bytes), sometimes followed by an immediate word.
+
+* Instruction Format on Zack, and a List of instructions *
+----------------------------------------------------------
+
+Low level details
+-----------------
+
+Instructions are always 1 word (16 bits), sometimes followed by an immediate word.
 First word:
 +---------------------------------------------------------------+
 |15 |14 |13 |12 |11 |10 | 9 | 8 | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
 |---------------------------|-----------|-----------|-----------|
-|        instruction        |    dest   |   src 1   |   src 2   |
+|      instruction code     |    dest   |   src 1   |   src 2   |
 |       -> decode ROM       |  (Z bus)  |  (X bus)  |  (Y bus)  |
 +---------------------------------------------------------------+
 
-Instruction bits (hex): Meaning - Explanation
----------------------------------------------
-Note: src1, src2 and dest refer to registers given in the instruction, as above
+- the possible instruction codes range from 00 to 7F. The ones with defined behaviour
+  are listed here. The rest have undefined behaviour - in fact much of the range
+  is unused.
+- An instruction is either one word or two words.
+  The first word is always of the format above.
+  Some instructions take an immediate value, which is then the second word.
+  For example, MOV and ADD are always one word.
+  LDI is always two words - it copies the second word into dest.
+- A word on Zack is 16 bits. There is no byte addressing in Zack.
 
+Useful information for an assembly programmer
+---------------------------------------------
+
+- src1, src2 and dest refer to registers given in the instruction, as above
+- The registers are called A, B, C, D, E, F, G, SP. Each of these is also assigned a number
+  from 0 to 7 respectively, and this number is used to refer to the register in
+  src1, src2 and dest.
+  (When executing an instruction the numbers in src1, src2 and dest
+  are passed to the multiplexers on the X, Y and Z buses, selecting which register to write to
+  or read from. Some of the multiplication and division instructions also read from and write
+  to register D (number 3), because they need three inputs and two outputs (see [Note 2]).)
+- The arguments expected by the assembler for each instruction are laid out in the list below.
+  dest, src1 or src2 means the name of a register, and imm means an immediate value.
+  For example, LDI and LDAI both expect a register, then an immediate.
+  So "LDI A, 'w'" "LDI D, -2" "LDAI B, label" and "LDI SP, 0xe000" are all valid.
+  Similarly ADD needs three registers, CMP needs two registers, NEG and CALLR need one register,
+  and CALL and JMPI just take an immediate. And NOP, HLT and RET don't take any arguments at all.
+- dest is the register where the retrieved data or result of a calculation is stored. It always
+  comes before any data sources in the syntax (Just like Intel syntax - but you noticed that already).
+
+List of instructions
+--------------------
+
+Instruction code (hex): Meaning - Explanation
+---------------------------------------------
+
+**Basic**:
 00: NOP
 01: HLT
-08: LDI dest, imm - load immediate value into dest register
-09: LDAI dest, address[imm] - load value at immediate address into register
-0A: STI src2, address[imm] - store value in register at immediate address in memory
-11: LDA dest, address[src2] - load value pointed to by src2 into dest
-12: STO src2, address[src1] - store value in src2 at the address referenced by src1
-13: PUSH src2 - push value of src2 onto stack
-14: MOV dest, src1 - copy value of src1 into dest
 
-18: ADD - add and the six instructions below are tertiary, so here dest := src1 + src2
-19: SUB
-1A: AND
-1B: OR
-1C: NAND
-1D: NOR
-1E: XOR
-1F: CMP src1, src2 (dest not affected, but flags set)
-20: INC (src1+1 -> dest)
-21: DEC (src1-1 -> dest)
-22: NEG (-src2 -> dest; 2's complement)
-23: INV (~src2 -> dest; bitwise NOT)
+**Memory and data movement**:
+08: LDI dest, imm             - load immediate value into dest register (dest := imm)
+09: LDAI dest, address[imm]   - load value at immediate address into register (dest := *imm) [Note 1]
+0A: STI src2, address[imm]    - store value in register at immediate address in memory
+11: LDA dest, address[src2]   - load value pointed to by src2 into dest
+12: STO src2, address[src1]   - store value in src2 at the address referenced by src1
+13: PUSH src2                 - push value of src2 onto stack  [Note 3]
+14: MOV dest, src1            - copy value of src1 into dest
 
-28: REM (result -> D; upper half <- D) (the modulus operator)
-29: MULC (cin <- D; upper half -> D)
-2A: DIVD (upper half <- D)
-2B: DIVC (quotient->dest; rem->D; upper half of dividend <- D)
-2C: MUL (discard upper half)
-2D: DIV (no upper half)
-30: SHL - bitwise shifts are also tertiary, so here dest := src1 << src2
-31: SHR
-32: SAR
-33: ROL
-34: ROR
+**Basic arithmetic and bitwise logic**:
+18: ADD dest, src1, src2      - dest := src1 + src2  [Note 1]
+19: SUB dest, src1, src2      - dest := src1 - src2
+1A: AND dest, src1, src2      - dest := src1 & src2
+1B: OR dest, src1, src2       - dest := src1 | src2
+1C: NAND dest, src1, src2     - dest := src1 NAND src2
+1D: NOR dest, src1, src2      - dest := src1 NOR src2
+1E: XOR dest, src1, src2      - dest := src1 XOR src2
+1F: CMP src1, src2            - temp := src1 - src2 (dest not affected but flags set)
+20: INC src1                  - dest := src1 + 1
+21: DEC src1                  - dest := src1 - 1
+22: NEG src2                  - dest := -src2 (using 2's complement)
+23: INV src2                  - dest := ~src2 (bitwise NOT)
 
+**Division and Multiplication** [Note 2]
+28: REM src1, src2        - modulus, aka remainder
+                             (div.upper_half := D; div.lower_half := src1; D := div % src2) [Note 1]
+29: MULC dest, src1, src2 - multiply with carry
+                             (res := src1 * src2 + D; dest := res.lower_half; D := res.upper_half)
+2A: DIVD dest, src1, src2 - divide with upper half from D (discard remainder)
+                             (div.upper_half := D; div.lower_half := src1; dest := div / src2)
+2B: DIVC dest, src1, src2 - divide with carry (upper half from D, remainder in D)
+                             (div.upper_half := D; div.lower_half := src1; dest := div / src2; D := div % src2)
+2C: MUL dest, src1, src2  - multiply (discard upper half)
+                             (dest := (src1 * src2).upper_half)
+2D: DIV dest, src1, src2  - divide (no upper half, discard remainder)
+                             (dest := src1 / src2)
+
+**Bitwise shift**:
+30: SHL dest, src1, src2  - dest := src1 << src2 (left shift - rightmost (least significant) bit set to 0)
+31: SHR dest, src1, src2  - dest := src1 >> src2 (logical shift right - leftmost bit set to 0)
+32: SAR dest, src1, src2  - dest := src1 >> src2 (arithmetic shift right - leftmost bit duplicated)
+33: ROL dest, src1, src2  - dest := src1 ROL src2 (rotate left)
+34: ROR dest, src1, src2  - dest := src1 ROR src2 (rotate right)
+
+**Jumps**:
 The conditional jumps below check flags that were set by a previous instruction (similar to x86 architecture)
-60: JMPI imm - jump execution / set program counter to immediate address
-61: JZI imm - jump if zero
-62: JNZI imm - conditional jumps...
-63: JGI imm  \ signed
-64: JLI imm  /
-65: JAI imm  \ unsigned
-66: JBI imm  /
-68: JMP src2 - jump execution / set program counter to address in register
+60: JMPI imm - jump (PC := imm, ie. set program counter to immediate address, ie. execute the code at that address)
+61: JZI imm - conditional jump: if zero
+62: JNZI imm - conditional jump: if not zero
+63: JGI imm - conditional jump: if greater \ signed
+64: JLI imm - conditional jump: if less    /
+65: JAI imm - conditional jump: if above   \ unsigned
+66: JBI imm - conditional jump: if below   /
+68: JMP src2 - PC := src2
 69: JZ src2
 6A: JNZ src2
 6B: JG src2  \ signed
@@ -62,7 +115,45 @@ The conditional jumps below check flags that were set by a previous instruction 
 6D: JA src2  \ unsigned
 6E: JB src2  /
 
-78: CALL imm - function call (push program counter to stack and jump to imm address)
-79: RET - return from function call (pop program counter from stack)
-7A: CALLR src2 - function call with function address from a register
-7B: POP dest - pop value from top of stack into register (dest := [SP]; SP++)
+**Stack**: [Note 3]
+78: CALL imm    - function call (push program counter to stack and jump to imm address)
+79: RET         - return from function call (pop program counter from stack)
+7A: CALLR src2  - function call with function address from a register
+7B: POP dest    - pop value from top of stack into register (dest := *SP; SP := SP + 1)   [Note 1]
+
+
+ Notes
+-------
+
+[Note 1]
+ :=    means the assignment operator
+ %     means the modulus operator
+ ;     separates logical steps executed sequentially
+ *imm  means the value stored at the immediate address (like dereferencing a pointer)
+ *SP   means the value stored at the address in SP (like dereferencing a pointer)
+
+[Note 2]
+Some of the division and multiplication instructions below make use of the register D...
+* When multiplying two 16 bit integers, the answer can be up to 32 bits long.
+  - MUL does: dest := (src1 * src2).lower_half, and discards the upper 16 bits
+  - MULC does: dest := (src1 * src2 + D).lower_half; D := (src1 * src2 + D).upper_half
+    In other words MULC incorporates a carry-in which is added to the result, and a carry-out (upper half)
+* You can divide up to a 32 bit integer (dividend) by up to a 16 bit integer (divisor) to produce
+  a 16 bit integer (quotient) and a remainder.
+  All the division instructions below get the lower 16 bits of the dividend from src1,
+  the divisor from src2, and place the quotient in dest (except REM, which leaves dest alone):
+  dividend.lower_half := src1
+  dest := dividend / src2
+  What about the upper 16 bits of the dividend (upper half), and the remainder?
+   - the DIV instruction sets (upper_half := 0) and discards the remainder
+   - the DIVD instruction sets (upper_half := D) and discards the remainder
+   - the DIVC instruction sets (upper_half := D) and then stores the remainder in D
+      (to clarify, it uses the value in D and then overwrites it with the remainder)
+   - the REM instruction sets (upper_half := D), stores the remainder in D, but doesn't
+      store the quotient in dest.
+* Note that Zack only does unsigned integer multiplication and division.
+
+[Note 3]
+The stack instruction PUSH has code 13, far away from the other stack instructions.
+It hangs out with the memory and data instructions instead.
+There's no particular reason why, it just likes them more.

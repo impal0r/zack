@@ -1,23 +1,74 @@
-The bios initialises the stack pointer to 0xe000, prints a welcome message, and detects and runs programs in the memory. If the value at address 0x0200 is nonzero, the BIOS passes execution to code pointed to by 0x0200 (ie. jumps to the address contained in 0x0200), otherwise the BIOS halts. As such each program should specify the entry point by a pointer located at address 0x0200. Note that the assembler does this automatically with the '-prog' flag, or if the first line of a source file is `Z1.0 prog`.
 
-The BIOS also defines a few useful IO functions (addresses below in decimal) - see bios.src for assembly source and more details:
+* The "BIOS" and its use to a programmer *
+------------------------------------------
 
-printc  - 107 (char(A))
-prints  - 110 (*str(A), len(C))
-getc    - 119 () -> char(A)
-halt    - 128 ()
-clrtty  - 131 ()
-clrscr  - 134 ()
-showcol - 137 (colnum(C), value(D))
-showimg - 145 (*cols(A))
+Since Zack is a very simple model computer, it consists of just the BIOS and
+the RAM, and can only run one program at a time. This program is like the operating
+system of a modern computer: it takes over complete control from the BIOS.
+But it doesn't have to have the same responsibilities as a modern operating system
+- it can do whatever we want it to, like playing a game of noughts and crosses (tic-tac-toe).
 
-(you can include define.src to use the names of the functions, as demonstrated in the example programs)
+The BIOS (Basic Input-Output System) of a real computer has to do a lot of things.
+When the computer is switched on, it needs to check that the parts of the computer are all
+there and working properly, initialise all the parts of the computer so they are ready to
+do work, check for and load an operating system from the disk, and offer
+drivers for various complicated things like hard disk drives and USB, as well as monitoring
+cpu temperatures and ensuring the system is secure from malware. The modern successor to BIOS
+is UEFI (Unified Extensible Firmware Interface), which aims to do all this and more in a portable
+way, which means that operating system developers can write one version of their operating system
+which will work on all UEFI systems.
 
-Note: prints modifies registers A, B, D
-      showimg modifies registers A and D
-      getc modifies A, B
-      showcol modifies B, C
-      The other functions don't modify any registers.
-      The registers E, F, G are caller saved.
+The BIOS of Zack, however, has a much simpler job. It doesn't have to check that Zack is working,
+because it's guaranteed to work - it's made of perfect simulated components with no
+defects (as long as you don't mess with the virtual wiring - and not counting the defect of being
+astronomically slow). It can't load a program into memory, we do that manually. The only thing that
+needs initialising is the stack pointer, everything else is ready to go because logisim components
+come pre-set-up for us. All Zack's BIOS needs to do it set the stack pointer and hand over to the
+program we've loaded (see bios.src). For a bit of beauty, it also prints a welcome message.
 
-Also note: DONT call prints with register C (this is the length) set to ZERO!!!
+But Zack's BIOS also does one more thing - it offers some useful methods to our program that abstract
+some of the IO away behind function calls. Their memory addresses are given in 'define.src', and what
+they do is explained both here and in the source code, bios.src.
+
+IO and Utility functions
+------------------------
+
+printc(char(A))
+
+    Sends a single character to the TTY (text output). The character to print should be placed in
+    register A before printc is called. No registers are affected.
+
+prints(*str(A), len(C))
+
+    Sends (prints) a string to the TTY. The pointer to the start of the string is expected in A,
+    and the length of the string in C. *If C is zero when prints is called you will get an infinite
+    loop causing a buffer overflow*. This function overwrites the registers A B C D. 
+
+getc() -> char(A)
+
+    Waits for keyboard input, and returns the next character typed in A. Takes no arguments. Overwrites
+    registers A and B.
+
+halt()
+
+    Executes the HALT instruction, stopping code execution. If the blue CONTINUE button is pressed,
+    which cancels a HALT, HALT will just be executed again.
+
+clrtty()
+
+    Clears the text output. No registers are affected.
+
+clrscr()
+
+    Clears the LED matrix. No registers are affected.
+
+showcol(colnum(C), value(D))
+
+    Shows the contents of D on the C'th column of the LED matrix display. Each register is 16 bits,
+    and a column of the display is 16 pixels. There are 16 columns - the number in C modulo 16 is
+    used as the column index. This function overwrites B and C.
+
+showimg(*cols(A))
+
+    Shows a set of 16 columns on the display, comprising a full image. A should point to the start of
+    the array of 16 columns (each column is a word). This function overwrites the registers A B C D.

@@ -6,7 +6,7 @@
  The reason this project exists is an educational one: by building everything from the ground up, including designing my own instruction set, processor, IO layout, and assembly compiler, I learned a lot about the details and edge cases of this kind of system design, and hope to make something more complicated in the future.
  
 ### Future:
- - Need to improve the obscure documentation
+ - Need to improve the documentation
  - Write a program to test the instruction set
  - Make a version 2??
  - I have read that https://github.com/hneemann/Digital can be clocked much faster than logisim, and is still currently maintained, so if I go ahead and make a second version I'll very likely switch from logisim to Digital
@@ -25,6 +25,8 @@
  - Left-click the keyboard in Poke mode to pass input to the simulated computer
  
 ## Programming Zack:
+Documentation can be found in the files `instr.txt`, `assemble.txt` and `bios.txt` - I recommend opening these in a text editor with fixed-width characters as they use a bit of ASCII formatting (outdated, I know). The example programs all come with source code; in particular `bios.src` and `maze2.src` contain a lot of explanatory comments.
+
 Programs for Zack are written as `.src` files, using a custom assembly language described in `assemble.txt` and `instr.txt`. They are compiled using the `assemble.py` assembler, producing a hexadecimal file (or memory image) with the extension `.mem`. Such an image can be loaded and run in Zack by following the steps under "Running Zack".
 
 The assembly language definition is based on Intel syntax. The assembler supports single-line comments, labels (which you can jump to or call), defining constants in memory, basic arithmetic expressions (eg. `0xf100+'a'`), and some preprocessor macros including `#include` and `#define` statements. It does not support any arithmetic expressions beyond single addition, and does not support strings like some fully-fledged modern assemblers.
@@ -34,11 +36,11 @@ For examples, please have a look the `.src` files in the project, especially `ma
 Note that the routines defined in the "BIOS" and programs in this project don't use a standard calling convention, so they take arguments and return values in different registers. This allows for multiple return values and some micro-optimisation, but makes the code a little more confusing. Each function documents which registers it takes each argument in and where it returns each value, in a comment on its top line in `bios.src`.
 
 ### Notepad++ syntax highlighting
-If you use Notepad++ to write code for this model computer, you can follow the following steps to get syntax highlighting in your .src files:
-1. Download the file userDefineLang.xml
+I have included a Notepad++ user defined language file, `userDefineLang.xml`, which allows Notepad++ to properly syntax highlight `.src` files.
+1. Download the file `userDefineLang.xml`
 2. Find where your installation of Notepad++ keeps userDefineLand.xml, which on Windows 10 is `%AppData%\Roaming\Notepad++\`
-3. If you have not defined any custom languages yourself, you can replace your file with the one you downloaded. Otherwise, you need to merge the XML structure of the files so that you don't lose your custom languages.
-4. Now when you create a `.src` file in Notepad++, right-click on 'Normal text file' in the bottom left, and you should be able to select 'Zack Assembly'. This will get you syntax highlighting when writing .src files.
+3. If you have not defined any custom languages yourself, you can replace your file with the one from this repository. Otherwise, *you need to merge the XML structure of the files so that you don't lose your own custom languages*.
+4. Create or open a `.src` file in Notepad++, right-click on 'Normal text file' in the bottom left corner, and you should be able to select 'Zack Assembly'. This should enable the custom syntax highlighting for all `.src` files.
 
 ### .src file syntax
  - The first line should always be `Z1.0 prog`
@@ -48,7 +50,7 @@ If you use Notepad++ to write code for this model computer, you can follow the f
  - Every program should either HALT or keep running in a loop. If execution passes the end of your program the processor will start executing empty memory, which is an infinite NOP sled, and 0x0000 is the opcode for NOP.
 
 ### Assembling source code
-Open a command window, and run `python assemble.py filename.src`. This should produce a `.mem` file of the same name as the source.
+Open a command or terminal window, and run `python assemble.py [filename].src` in the project directory. If there are no errors this will create (or overwrite by default) the file `[filename].mem`.
 
 To test the program, follow the steps under Running Zack, and select the `.mem` file you just created.
 
