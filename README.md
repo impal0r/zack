@@ -2,21 +2,21 @@
 
 ![Screenshot of Zack in logisim](/images/zack.PNG)
 
- Zack is an demonstration of a 16-bit RISC computer implemented in logisim. It uses a non-standard instruction set, and includes an assembler (written in python) which translates from Intel-like assembly to bytecode, which can be loaded into memory manually. The default programs include noughts-and-crosses (aka. tic-tac-toe), a maze game, and some test programs.
+ Zack is an demonstration of a 16-bit RISC computer implemented in logisim. It includes a custom instruction set, with an assembler written in Python3 to convert code to bytecode in Logisim-format memory files. Deafult programs: noughts-and-crosses (aka. tic-tac-toe), a maze game, and some test programs.
  
- Zack has a relatively simple architecture, with a hardwired decoder and a 2-bit internal phase counter, and is connected to some memory-mapped IO for demonstration purposes (keyboard, text console, and a 16x16 LED matrix - all built-in logisim components). It has a ROM module which contains the "bios", and a RAM module for loading programs.
+ Zack uses a hardwired decoder (no microcode), a 2-bit internal phase counter, and hardwired registers, and is connected to some memory-mapped IO (keyboard, text console, and a 16x16 LED matrix - all built-in logisim components). It has a ROM module containing the "bios", and a RAM module into which programs must be manually loaded.
  
  The reason this project exists is an educational one: by building everything from the ground up, including designing my own instruction set, processor, IO layout, and assembly compiler, I learned a lot about the details and edge cases of this kind of system design, and hope to make something more complicated in the future.
  
-### Future:
- - Write a program to test the instruction set
- - Make a version 2??
- - I have read that https://github.com/hneemann/Digital can be clocked much faster than logisim, and is still currently maintained, so if I go ahead and make a second version I'll very likely switch from logisim to Digital
- - Either use RISC-V in the next version, or write a C compiler, so that anyone trying to use this can retain some degree of sanity
+### Possible future improvements:
+ - Write a test suite for the instruction set
+ - Remake the whole thing better:
+ - https://github.com/hneemann/Digital can be clocked much faster than logisim, and is still currently maintained (as of 2022), so if I go ahead and make a second version I'll very likely switch from logisim to Digital
+ - Either implement RISC-V in the next version, or write a C compiler, so that it can be easily used by more people
 
 ### Requirements
- - **Logisim** - I have used version 2.7.1 (the last version, as the main branch of logisim is ~~sadly~~ no longer maintained)
- - **Python 3** for programming Zack, as the assembler is written as a Python 3.7 script
+ - **Logisim** - I have used version 2.7.1 (the last version, as the main branch of logisim is no longer maintained)
+ - **Python 3** - the assembler is a Python 3.7 script
 
 ## Running Zack:
  - Open computer.circ with Logisim
@@ -27,15 +27,13 @@
  - Left-click the keyboard in Poke mode to pass input to the simulated computer
  
 ## Programming Zack:
-Documentation can be found in the files `instr.txt`, `assemble.txt` and `bios.txt` - I recommend opening these in a text editor with fixed-width characters as they use a bit of ASCII formatting (outdated, I know). The example programs all come with source code; in particular `bios.src` and `maze2.src` contain a lot of explanatory comments.
+Documentation formatted as fixed-width text is found in the files `instr.txt`, `assemble.txt` and `bios.txt`. This was written by me a few years ago when I wasn't as good at writing documentation, so I apologise in advance both for the formatting and for the style. Also, all the example programs have source code, and  `bios.src` and `maze2.src` in particular contain a lot of explananatory comments, and `noughts-crosses.src` also uses a lot of the features.
 
-Programs for Zack are written as `.src` files, using a custom assembly language described in `assemble.txt` and `instr.txt`. They are compiled using the `assemble.py` assembler, producing a hexadecimal file (or memory image) with the extension `.mem`. Such an image can be loaded and run in Zack by following the steps under "Running Zack".
+Programs for Zack are written as `.src` files, using a custom assembly language described in `assemble.txt` and `instr.txt`. They are compiled using the `assemble.py` assembler, producing a file with the extension `.mem`, which can be read by Logisim so it can be loaded into Zack's memory module.
 
-The assembly language definition is based on Intel syntax. The assembler supports single-line comments, labels (which you can jump to or call), defining constants in memory, basic arithmetic expressions (eg. `0xf100+'a'`), and some preprocessor macros including `#include` and `#define` statements. It does not support any arithmetic expressions beyond single addition, and does not support strings like some fully-fledged modern assemblers.
+The custom assembly language is based on Intel syntax. The assembler supports single-line comments, labels (which you can jump to or call), defining constants in memory, basic arithmetic expressions (eg. `0xf100+'a'`), and some preprocessor macros including `#include` and `#define` statements. It does not support any arithmetic expressions beyond single addition, and does not support strings like modern assemblers.
 
-For examples, please have a look the `.src` files in the project, especially `maze2.src` and `noughts-crosses.src`.
-
-Note that the routines defined in the "BIOS" and programs in this project don't use a standard calling convention, so they take arguments and return values in different registers. This allows for multiple return values and some micro-optimisation, but makes the code a little more confusing. Each function documents which registers it takes each argument in and where it returns each value, in a comment on its top line in `bios.src`.
+Note that the routines defined in the "BIOS" and programs in this project don't use a single standard calling convention, so they take arguments and return values in different registers. This allows for multiple return values and some micro-optimisation, but makes the code a little more confusing. I would normally avoid doing this, but Logisim has a very slow clock speed and I was frustrated. Each function documents which registers it uses, and the calling convention, in comments.
 
 ### Notepad++ syntax highlighting
 I have included a Notepad++ user defined language file, `userDefineLang.xml`, which allows Notepad++ to properly syntax highlight `.src` files.
