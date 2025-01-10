@@ -1,4 +1,5 @@
 Z1.0 raw
+;addresses of the bios functions
 #DEFINE printc 107 ;0x6b
 #DEFINE prints 110 ;0x6e
 #DEFINE getc 119   ;0x77

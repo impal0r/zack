@@ -97,23 +97,23 @@ def inline_to_int(number, recurse=None):
     #is it a character?
     if len(number) == 3 and number[0] == number[2] == "'":
         if number[1] == '\x00':
-		    return ord(' ')
+            return ord(' ')
         num = ord(number[1])
         if num > 256: raise ValueError #zack doesn't support unicode
         return num
     elif len(number)==4 and number[0]==number[3]=="'" and number[1]=='\\':
-	    if number[2] == 'n':
-		    return ord('\n')
-		elif number[2] == 't':
-		    return ord('\t')
-		elif number[2] == 'r':
-		    return ord('\r')
-		elif number[2] == 'b':
-		    return ord('\b')
-		elif number[2] == '\\':
-		    return ord('\\')
-		else:
-		    raise ValueError
+        if number[2] == 'n':
+            return ord('\n')
+        elif number[2] == 't':
+            return ord('\t')
+        elif number[2] == 'r':
+            return ord('\r')
+        elif number[2] == 'b':
+            return ord('\b')
+        elif number[2] == '\\':
+            return ord('\\')
+        else:
+            raise ValueError
 
     #base + offset
     if '+' in number:

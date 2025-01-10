@@ -21,19 +21,18 @@ First word:
   The first word is always of the format above.
   Some instructions take an immediate value, which is then the second word.
   For example, MOV and ADD are always one word.
-  LDI is always two words - it copies the second word into dest.
+  LDI is always two words - it copies the second word into the destination register.
 - A word on Zack is 16 bits. There is no byte addressing in Zack.
 
 Useful information for an assembly programmer
 ---------------------------------------------
 
-- src1, src2 and dest refer to registers given in the instruction, as above
-- The registers are called A, B, C, D, E, F, G, SP. Each of these is also assigned a number
-  from 0 to 7 respectively, and this number is used to refer to the register in
-  src1, src2 and dest.
+- src1, src2 and dest refer to registers as encoded in the instruction
+- The registers are called A, B, C, D, E, F, G, SP. Each of these is assigned a number
+  from 0 to 7 respectively in bytecode, which goes into the instruction format above.
   (When executing an instruction the numbers in src1, src2 and dest
   are passed to the multiplexers on the X, Y and Z buses, selecting which register to write to
-  or read from. Some of the multiplication and division instructions also read from and write
+  or read from. Some of the multiplication and division instructions additionally read from and write
   to register D (number 3), because they need three inputs and two outputs (see [Note 2]).)
 - The arguments expected by the assembler for each instruction are laid out in the list below.
   dest, src1 or src2 means the name of a register, and imm means an immediate value.
@@ -129,8 +128,8 @@ The conditional jumps below check flags that were set by a previous instruction 
  :=    means the assignment operator
  %     means the modulus operator
  ;     separates logical steps executed sequentially
- *imm  means the value stored at the immediate address (like dereferencing a pointer)
- *SP   means the value stored at the address in SP (like dereferencing a pointer)
+ *imm  means the value stored at the immediate address (i.e. dereferencing a pointer)
+ *SP   means the value stored at the address in SP (i.e. dereferencing a pointer)
 
 [Note 2]
 Some of the division and multiplication instructions below make use of the register D...
